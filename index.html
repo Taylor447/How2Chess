@@ -144,14 +144,14 @@
               </div>
             </article>
             <article class="card result-card" id="resultCard">
-              <div class="result-head"><div><span class="eyebrow eyebrow-soft">ENGINE INSIGHT</span><h3>Phân tích nước đi</h3></div><span class="eval-pill" id="evalPill">—</span></div>
+              <div class="result-head"><div><span class="eyebrow eyebrow-soft">ENGINE INSIGHT</span><h3>Phân tích nước đi</h3></div><div class="result-head-actions"><button class="coach-toggle" id="coachToggle" type="button" aria-pressed="false">Coach tắt</button><span class="eval-pill" id="evalPill">—</span></div></div>
               <div class="engine-progress" id="engineProgress" hidden><span class="spinner"></span><span>Stockfish đang tính…</span><button class="text-btn" id="stopEngine">Dừng</button></div>
               <div class="engine-error" id="engineError" hidden><span>Engine chưa khởi động được.</span><button class="text-btn" id="retryEngine">Thử lại</button></div>
               <div class="eval-layout">
                 <div class="eval-track" aria-label="Thanh đánh giá"><div class="eval-black" id="evalBlack"></div><div class="eval-white" id="evalWhite"></div></div>
                 <div class="eval-copy"><strong id="evalScore">Chưa có đánh giá</strong><span id="evalMeta">Nhấn “Tính nước đi” để phân tích thế cờ.</span></div>
               </div>
-              <p class="explanation" id="moveExplanation">Nước đi tốt nhất sẽ hiện tại đây cùng lời giải thích ngắn.</p>
+              <p class="explanation" id="moveExplanation">Nước đi tốt nhất sẽ hiện tại đây cùng lời giải thích ngắn.</p><p class="coach-board-hint" id="coachBoardHint" hidden></p>
               <div class="pv-list" id="pvList"></div>
             </article>
           </div>

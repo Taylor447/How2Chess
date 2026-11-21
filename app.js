@@ -57,6 +57,8 @@
   let savedGames = parseJSON(store.get("h2c-game-history","[]"), []);
   if (!Array.isArray(savedGames)) savedGames = [];
   let playerRating = Math.max(100, Number(store.get("h2c-player-rating","1200")) || 1200);
+  let coachEnabled = store.get("h2c-coach-enabled","0")==="1";
+  let coachSnapshot = null, coachPendingMove = null, coachMoveLog = [], coachHintText = "", pendingHintLevel = 0;
 
   const EN_TEXT = {
     "Đọc thế cờ.":"Read the position.","Tìm nước hay.":"Find the better move.",
@@ -344,7 +346,7 @@
     el.innerHTML=lines.map((line,i)=>'<div class="pv-line"><span class="pv-rank">'+(i+1)+'</span><span class="pv-text"><strong>'+escapeHtml(line.first||line.uci.slice(0,4))+'</strong>　'+escapeHtml(line.text||line.uci)+'</span></div>').join("");
   }
   function renderAll() {
-    renderTrays();renderBoard();renderStatus();renderValidation();renderEvaluation();renderPv();renderOpponent();updateGameClockDisplay();translateDocument();
+    renderTrays();renderBoard();renderStatus();renderValidation();renderEvaluation();renderPv();renderOpponent();updateGameClockDisplay();syncCoachToggle();translateDocument();
   }
   function translateDocument() {
     const map=settings.language==="en"?EN_TEXT:VI_TEXT,walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
@@ -398,7 +400,7 @@
     const rows=filtered.map(game=>{
       const resultText=en?({win:"Win",draw:"Draw",loss:"Loss"}[game.result]||"Saved") :({win:"Thắng",draw:"Hòa",loss:"Thua"}[game.result]||"Đã lưu");
       const date=new Date(game.date).toLocaleDateString(en?"en-US":"vi-VN",{year:"numeric",month:"short",day:"numeric"});
-      return '<article class="card history-row"><div class="history-result '+escapeHtml(game.result||"draw")+'">'+(game.result==="win"?"W":game.result==="loss"?"L":"½")+'</div><div class="history-copy"><strong>'+(en?"vs ":"đấu với ")+escapeHtml(game.botName||"Bot")+' · '+resultText+'</strong><span>'+date+' · '+(game.moveCount||0)+' '+(en?"plies":"nửa nước")+' · '+(game.botElo||"—")+' Elo</span></div><div class="history-actions"><button class="btn btn-soft" type="button" data-open-game="'+game.id+'">'+(en?"Review":"Xem lại")+'</button><button class="icon-btn" type="button" data-delete-game="'+game.id+'" aria-label="'+(en?"Delete game":"Xóa ván")+'">×</button></div></article>';
+      return '<article class="card history-row"><div class="history-result '+escapeHtml(game.result||"draw")+'">'+(game.result==="win"?"W":game.result==="loss"?"L":"½")+'</div><div class="history-copy"><strong>'+(en?"vs ":"đấu với ")+escapeHtml(game.botName||"Bot")+' · '+resultText+'</strong><span>'+date+' · '+(game.moveCount||0)+' '+(en?"plies":"nửa nước")+' · '+(game.botElo||"—")+' Elo · '+(game.accuracy===null||game.accuracy===undefined?"—":game.accuracy+"%")+(en?" accuracy":" chính xác")+'</span></div><div class="history-actions"><button class="btn btn-soft" type="button" data-open-game="'+game.id+'">'+(en?"Review":"Xem lại")+'</button><button class="icon-btn" type="button" data-delete-game="'+game.id+'" aria-label="'+(en?"Delete game":"Xóa ván")+'">×</button></div></article>';
     }).join("");
     host.innerHTML='<section class="card history-toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="historySearch" type="search" placeholder="'+(en?"Search games":"Tìm ván đấu")+'" value="'+escapeHtml(query)+'"></label><select id="historyFilter" aria-label="'+(en?"Filter games":"Lọc ván")+'"><option value="all"'+(historyFilter==="all"?" selected":"")+'>'+(en?"All results":"Tất cả")+'</option><option value="win"'+(historyFilter==="win"?" selected":"")+'>'+(en?"Wins":"Thắng")+'</option><option value="draw"'+(historyFilter==="draw"?" selected":"")+'>'+(en?"Draws":"Hòa")+'</option><option value="loss"'+(historyFilter==="loss"?" selected":"")+'>'+(en?"Losses":"Thua")+'</option></select><input id="historyPgnFile" type="file" accept=".pgn,text/plain" hidden><button class="btn btn-soft" type="button" data-import-pgn>'+(en?"Import PGN":"Nhập PGN")+'</button><button class="btn btn-soft" type="button" data-export-pgn '+(savedGames.length?"":"disabled")+'>'+(en?"Export PGN":"Xuất PGN")+'</button></section><div class="pgn-dropzone">'+(en?"Drop a .pgn file here to import":"Kéo thả tệp .pgn vào đây để nhập")+'</div><div class="history-list">'+(rows||'<article class="card empty-feature"><span class="empty-feature-icon">'+routeIconSVG("history")+'</span><h3>'+(en?"No saved games yet":"Chưa có ván nào")+'</h3><p>'+(en?"Finished bot games appear here automatically.":"Ván đấu với bot sẽ tự lưu tại đây khi kết thúc.")+'</p><a class="btn btn-primary" href="#/bot">'+(en?"Choose a bot":"Chọn bot")+'</a></article>')+'</div>';
   }
@@ -432,6 +434,7 @@
   }
   function renderActiveFeatureRoute() {
     if(activeSideRoute==="bot")renderBotRoute();
+    else if(activeSideRoute==="coach")renderCoachRoute();
     else if(activeSideRoute==="history")renderHistoryRoute();
     else if(activeSideRoute==="stats")renderStatsRoute();
   }
@@ -485,10 +488,11 @@
     return true;
   }
   function recordBotMove(move) {
-    if(!botMatch||botMatch.finished)return;
-    botMatch.moves.push({san:move.san,from:move.from,to:move.to,promotion:move.promotion||"",color:move.color,fen:boardFen()});
+    if(!botMatch||botMatch.finished)return null;
+    const entry={san:move.san,from:move.from,to:move.to,promotion:move.promotion||"",uci:move.from+move.to+(move.promotion||""),color:move.color,fen:boardFen()};
+    botMatch.moves.push(entry);
     if(botMatch.whiteMs!==null)botMatch.lastTick=Date.now();
-    updateGameClockDisplay();
+    updateGameClockDisplay();return entry;
   }
   function createGamePgn(game) {
     const result=game.result==="win"?(game.playerColor==="w"?"1-0":"0-1"):game.result==="loss"?(game.playerColor==="w"?"0-1":"1-0"):"1/2-1/2";
@@ -502,10 +506,12 @@
     if(!botMatch||botMatch.finished)return;
     clearInterval(botClockTimer);botClockTimer=null;botMatch.finished=true;
     const score=winnerColor===null ? 0.5 : (winnerColor===botMatch.playerColor?1:0);
+    const playerLosses=botMatch.moves.filter(move=>move.color===botMatch.playerColor&&Number.isFinite(move.cpLoss)).map(move=>move.cpLoss);
+    const accuracy=playerLosses.length?Math.max(0,Math.round(100-playerLosses.reduce((sum,value)=>sum+value,0)/playerLosses.length/5)):null;
     const expected=1/(1+Math.pow(10,(botMatch.botElo-playerRating)/400));
     const before=playerRating;playerRating=Math.max(100,Math.round(playerRating+24*(score-expected)));
     const result=score===1?"win":score===0?"loss":"draw";
-    const game={id:botMatch.id,date:new Date().toISOString(),botId:botMatch.botId,botName:botMatch.botName,botElo:botMatch.botElo,playerColor:botMatch.playerColor,result,reason,moves:botMatch.moves.slice(),moveCount:botMatch.moves.length,startFen:botMatch.startFen,finalFen:boardFen(),ratingBefore:before,ratingAfter:playerRating,accuracy:null};
+    const game={id:botMatch.id,date:new Date().toISOString(),botId:botMatch.botId,botName:botMatch.botName,botElo:botMatch.botElo,playerColor:botMatch.playerColor,result,reason,moves:botMatch.moves.slice(),moveCount:botMatch.moves.length,startFen:botMatch.startFen,finalFen:boardFen(),ratingBefore:before,ratingAfter:playerRating,accuracy:accuracy};
     game.pgn=createGamePgn(game);savedGames.unshift(game);savedGames=savedGames.slice(0,2000);persistGameHistory();
     if(engineWorker&&engineBusy)engineWorker.postMessage("stop");engineBusy=false;currentJob=null;
     settings.elo=botMatch.previousSettings.elo;settings.multiPv=botMatch.previousSettings.multiPv;settings.analysisEngine=botMatch.previousSettings.analysisEngine;persistPrefs();
@@ -533,6 +539,7 @@
     if(!C){pushToast("Không tải được chess.js. Hãy tải lại trang rồi thử tiếp.");return;}
     const bot=getBot(selectedBotId);
     const player=botPlayerColor==="random"?(Math.random()<.5?"w":"b"):botPlayerColor;
+    coachSnapshot=null;coachPendingMove=null;coachMoveLog=[];coachHintText="";pendingHintLevel=0;
     const clock=parseClockChoice(botClockChoice),previousSettings={elo:Number(settings.elo)||defaults.elo,multiPv:Number(settings.multiPv)||defaults.multiPv,analysisEngine:settings.analysisEngine};
     settings.elo=Math.max(1320,bot.elo);settings.multiPv=3;settings.analysisEngine="stockfish";
     setFromFen(START_FEN,false);boardName=bot.name+" · "+bot.elo+" Elo";orientation=player;turn="w";mode="engine";engineColor=opposite(player);
@@ -540,7 +547,7 @@
     undoStack=[];redoStack=[];bestMove=null;lastEvaluation=null;selection=null;legalTargets=[];
     $("#builderMode").disabled=true;$("#engineMode").disabled=true;$("#turnBtn").disabled=true;
     renderAll();setScreen("h2c",true);startBotClock();
-    if(turn===engineColor)setTimeout(()=>analyze(true,true),180);
+    if(turn===engineColor)setTimeout(()=>analyze(true,true),180);else if(coachEnabled)setTimeout(()=>analyzeForCoach(true),160);
   }
   function chooseBotUci(fen,lines,fallback) {
     if(!botMatch||botMatch.finished)return fallback;
@@ -562,6 +569,7 @@
     try{
       setFromFen(game.finalFen||game.startFen||START_FEN,false);
       boardName=(settings.language==="en"?"Review: ":"Phân tích: ")+game.botName;
+      coachMoveLog=(game.moves||[]).filter(move=>move.coachLabel);coachSnapshot=null;coachPendingMove=null;coachHintText="";
       mode="builder";botMatch=null;clearInterval(botClockTimer);botClockTimer=null;$("#builderMode").disabled=false;$("#engineMode").disabled=false;$("#turnBtn").disabled=false;$("#menuTrigger").disabled=false;$("#menuTrigger2").disabled=false;renderAll();setScreen("h2c",true);
       if(game.finalFen)pushToast(settings.language==="en"?"Final position loaded for review.":"Đã mở thế cờ cuối ván để phân tích.");
     }catch(_){pushToast("Không thể mở lại ván này.");}
@@ -606,10 +614,15 @@
       return;
     }
     if(event.target.closest("[data-export-pgn]")){exportSavedPgn();return;}
+    if(event.target.closest("[data-coach-analyze]")){coachHintText="";analyzeForCoach();return;}
+    const hintButton=event.target.closest("[data-hint-level]");
+    if(hintButton){requestCoachHint(Number(hintButton.dataset.hintLevel));return;}
+    if(event.target.closest("[data-coach-why]")){showCoachWhy();return;}
     if(event.target.closest("[data-import-pgn]")){$("#historyPgnFile").click();return;}
   }
   function handleFeatureChange(event) {
     const target=event.target;
+    if(target.id==="coachRouteToggle"){setCoachEnabled(target.checked);return;}
     if(target.id==="historyPgnFile"){importPgnFile(target.files?.[0]);return;}
     if(target.id==="historyFilter"){historyFilter=target.value;renderHistoryRoute();return;}
     if(target.id==="botColorChoice")botPlayerColor=target.value;
@@ -619,6 +632,140 @@
     else if(target.id==="botEvalChoice")botShowEval=target.checked;
     else return;
     if(activeSideRoute==="bot")renderBotRoute();
+  }
+  function copyCoachEval(value) {
+    return value?{white:Number(value.white)||0,mate:value.mate===null||value.mate===undefined?null:Number(value.mate),depth:Number(value.depth)||0,nodes:Number(value.nodes)||0,bestUci:value.bestUci||null,fen:value.fen||null}:null;
+  }
+  function syncCoachToggle() {
+    const button=$("#coachToggle");
+    if(button){button.setAttribute("aria-pressed",coachEnabled?"true":"false");button.textContent=coachEnabled?(settings.language==="en"?"Coach on":"Coach bật"):(settings.language==="en"?"Coach off":"Coach tắt");button.classList.toggle("coach-enabled",coachEnabled);}
+  }
+  function setCoachEnabled(enabled) {
+    coachEnabled=!!enabled;store.set("h2c-coach-enabled",coachEnabled?"1":"0");
+    if(coachEnabled&&lastEvaluation?.fen===boardFen()&&!coachSnapshot)coachSnapshot=copyCoachEval(lastEvaluation);
+    if(!coachEnabled)coachPendingMove=null;
+    syncCoachToggle();
+    if(activeSideRoute==="coach")renderCoachRoute();
+    pushToast(coachEnabled?(settings.language==="en"?"Coach is on.":"Đã bật huấn luyện viên."):(settings.language==="en"?"Coach is off.":"Đã tắt huấn luyện viên."));
+  }
+  function toggleCoach() { setCoachEnabled(!coachEnabled); }
+  function analyzeForCoach(snapshotOnly) {
+    const previous=settings.analysisEngine;settings.analysisEngine="stockfish";
+    analyze(false,false);
+    if(currentJob&&snapshotOnly)currentJob.coachSnapshotOnly=true;
+    settings.analysisEngine=previous;
+    if(activeSideRoute==="coach")renderCoachRoute();
+  }
+  function evaluationCp(value) {
+    if(!value)return null;
+    if(value.mate!==null&&value.mate!==undefined)return value.mate>0?10000-Math.abs(value.mate)*100:-10000+Math.abs(value.mate)*100;
+    return Number(value.white)||0;
+  }
+  function coachLabelFor(loss,best) {
+    if(loss===null)return {key:"unknown",vi:"Chưa đủ dữ liệu",en:"Not enough data"};
+    if(best||loss<=10)return {key:"best",vi:"Tốt nhất",en:"Best"};
+    if(loss<=25)return {key:"excellent",vi:"Xuất sắc",en:"Excellent"};
+    if(loss<=70)return {key:"good",vi:"Tốt",en:"Good"};
+    if(loss<=150)return {key:"inaccuracy",vi:"Bất chính xác",en:"Inaccuracy"};
+    if(loss<=300)return {key:"mistake",vi:"Sai lầm",en:"Mistake"};
+    return {key:"blunder",vi:"Sai lầm nghiêm trọng",en:"Blunder"};
+  }
+  function describePlayedMove(pending) {
+    const en=settings.language==="en";
+    try{
+      const game=new C(pending.fenBefore),move=game.move({from:pending.from,to:pending.to,promotion:pending.promotion||"q"});
+      if(!move)return en?"It changed the position.":"Nước đi làm thay đổi thế cờ.";
+      if(move.san.includes("#"))return en?"It delivers checkmate.":"Nước đi chiếu hết.";
+      if(move.captured)return en?"It captures a "+(GLYPH[move.captured]||"piece").toLowerCase()+".":"Nước đi bắt quân "+(GLYPH[move.captured]||"quân")+" của đối thủ.";
+      if(move.san.includes("+"))return en?"It gives check and forces a king response.":"Nước đi chiếu, buộc đối thủ phải xử lý vua.";
+      if(["d4","e4","d5","e5"].includes(pending.to))return en?"It fights for the center.":"Nước đi tranh chấp trung tâm.";
+      if(move.piece==="n"||move.piece==="b")return en?"It develops a minor piece.":"Nước đi phát triển quân nhẹ.";
+      return en?"It changes the position; watch the king safety and loose pieces.":"Nước đi thay đổi thế cờ; hãy để ý an toàn vua và quân bị treo.";
+    }catch(_){return en?"It changes the position.":"Nước đi làm thay đổi thế cờ.";}
+  }
+  function gradeCoachMove(pending,afterEval,lines) {
+    if(!pending)return;
+    let loss=null;
+    if(pending.before&&afterEval) {
+      const before=evaluationCp(pending.before),after=evaluationCp(afterEval);
+      loss=Math.max(0,Math.round(pending.color==="w"?after-before:before-after));
+    }
+    const best=!!(pending.bestUci&&pending.bestUci===pending.uci),label=coachLabelFor(loss,best);
+    const en=settings.language==="en";
+    let preferred="";if(pending.bestUci){try{const game=new C(pending.fenBefore),uci=pending.bestUci,move=game.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]||"q"});preferred=move?.san||uci;}catch(_){preferred=pending.bestUci;}}
+    const moveFact=describePlayedMove(pending);
+    const explanation=loss===null
+      ?moveFact+" "+(en?"There was no earlier engine score to compare with.":"Chưa có đánh giá engine trước nước này để so sánh.")
+      :loss<=25
+        ?moveFact+" "+(en?"The engine evaluation stayed close to its previous level.":"Đánh giá engine gần như được giữ nguyên.")
+        :moveFact+" "+(en?"The position shifted by about "+loss+" centipawns. Stockfish previously preferred "+(preferred||"a different move")+".":"Đánh giá thay đổi khoảng "+loss+" centipawn. Trước đó Stockfish ưu tiên "+(preferred||"một nước khác")+".");
+    const entry={san:pending.san,from:pending.from,to:pending.to,color:pending.color,uci:pending.uci,coachLabel:label.key,coachLabelVi:label.vi,coachLabelEn:label.en,cpLoss:loss,evalAfter:afterEval?evaluationCp(afterEval):null,explanation:explanation};
+    if(pending.matchEntry)Object.assign(pending.matchEntry,entry);
+    coachMoveLog.push(pending.matchEntry||entry);
+    coachHintText=explanation;
+    if(activeSideRoute==="coach")renderCoachRoute();
+  }
+  function coachHistory() {
+    if(botMatch&&Array.isArray(botMatch.moves))return botMatch.moves.filter(move=>move.coachLabel);
+    if(coachMoveLog.length)return coachMoveLog.filter(move=>move.coachLabel);
+    const recent=savedGames.find(game=>(game.moves||[]).some(move=>move.coachLabel));
+    return recent?(recent.moves||[]).filter(move=>move.coachLabel):[];
+  }
+  function coachLabelText(move) {
+    const en=settings.language==="en";
+    const labels={best:["Tốt nhất","Best"],excellent:["Xuất sắc","Excellent"],good:["Tốt","Good"],inaccuracy:["Bất chính xác","Inaccuracy"],mistake:["Sai lầm","Mistake"],blunder:["Sai lầm nghiêm trọng","Blunder"],unknown:["Chưa đủ dữ liệu","Not enough data"]};
+    return (labels[move.coachLabel]||labels.unknown)[en?1:0];
+  }
+  function renderCoachChart(moves) {
+    const points=moves.filter(move=>Number.isFinite(move.evalAfter)).slice(-20);
+    if(points.length<2)return '<div class="coach-chart-empty">'+(settings.language==="en"?"Make a few moves to build the advantage graph.":"Chơi thêm vài nước để tạo biểu đồ lợi thế.")+'</div>';
+    const coords=points.map((move,index)=>{
+      const x=12+index*(276/Math.max(1,points.length-1)),cp=Math.max(-600,Math.min(600,move.evalAfter));
+      const y=56-(cp/600)*42;
+      return x.toFixed(1)+","+y.toFixed(1);
+    }).join(" ");
+    return '<svg class="coach-chart" viewBox="0 0 300 112" role="img" aria-label="'+(settings.language==="en"?"Advantage by move":"Lợi thế theo nước đi")+'"><path d="M10 56H290" stroke="currentColor" opacity=".22"/><polyline points="'+coords+'" fill="none" stroke="var(--action)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+coords.split(" ").map(point=>{const xy=point.split(",");return '<circle cx="'+xy[0]+'" cy="'+xy[1]+'" r="3" fill="var(--gd)"/>';}).join("")+'</svg>';
+  }
+  function renderCoachRoute() {
+    const host=$("#featureRouteBody");if(!host)return;
+    const en=settings.language==="en",moves=coachHistory(),moments=moves.filter(move=>["mistake","blunder","inaccuracy"].includes(move.coachLabel)).slice(-6).reverse();
+    const labels=moves.slice(-10).reverse(),currentEval=coachSnapshot||lastEvaluation;
+    const scoreText=!currentEval?"—":currentEval.mate!==null&&currentEval.mate!==undefined?(currentEval.mate>0?"M"+currentEval.mate:"-M"+Math.abs(currentEval.mate)):((currentEval.white>0?"+":"")+(currentEval.white/100).toFixed(2));
+    const scoreMeta=currentEval?((en?"Depth ":"Độ sâu ")+(currentEval.depth||"—")):((engineBusy||currentJob)?(en?"Stockfish is thinking…":"Stockfish đang tính…"):(en?"No evaluation yet":"Chưa có đánh giá"));
+    host.innerHTML='<section class="card coach-panel"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"MOVE-BY-MOVE COACH":"HUẤN LUYỆN THEO TỪNG NƯỚC")+'</span><h3>'+(en?"Coach controls":"Điều khiển huấn luyện viên")+'</h3></div><label class="coach-switch"><input id="coachRouteToggle" type="checkbox"'+(coachEnabled?" checked":"")+'><span>'+(en?"Coach on during games":"Bật Coach khi chơi")+'</span></label></div><p class="feature-note">'+(en?"Move labels are estimates based on Stockfish evaluation changes; deeper review is more reliable.":"Nhãn nước đi là ước tính từ độ đổi đánh giá của Stockfish; phân tích sâu hơn sẽ đáng tin cậy hơn.")+'</p><div class="coach-current-eval"><span>'+(en?"Current evaluation":"Đánh giá hiện tại")+'</span><strong>'+scoreText+'</strong><small>'+scoreMeta+'</small></div><div class="coach-actions"><button class="btn btn-primary" type="button" data-coach-analyze>'+(en?"Analyze current board":"Phân tích bàn cờ hiện tại")+'</button><button class="btn btn-soft" type="button" data-coach-why>'+(en?"Why?":"Vì sao?")+'</button></div><div class="hint-levels"><span>'+(en?"Hint level":"Mức gợi ý")+'</span><button class="btn btn-soft" type="button" data-hint-level="1">1 · '+(en?"Focus":"Vùng")+'</button><button class="btn btn-soft" type="button" data-hint-level="2">2 · '+(en?"Piece":"Quân")+'</button><button class="btn btn-soft" type="button" data-hint-level="3">3 · '+(en?"Move":"Nước")+'</button></div><p class="coach-hint" id="coachHintText">'+escapeHtml(coachHintText||(en?"Analyze the current board, then request a hint or a short explanation.":"Phân tích bàn cờ rồi chọn mức gợi ý hoặc xem giải thích ngắn."))+'</p></section><div class="coach-detail-grid"><article class="card coach-panel"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"ADVANTAGE":"LỢI THẾ")+'</span><h3>'+(en?"Advantage by move":"Biểu đồ lợi thế")+'</h3></div></div>'+renderCoachChart(moves)+'</article><article class="card coach-panel"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"KEY MOMENTS":"THỜI KHẮC THEN CHỐT")+'</span><h3>'+(en?"Critical moves":"Nước đi đáng chú ý")+'</h3></div></div>'+(moments.length?'<div class="coach-moment-list">'+moments.map(move=>'<div class="coach-moment"><strong>'+escapeHtml(move.san||"—")+'</strong><span class="coach-label '+escapeHtml(move.coachLabel)+'">'+escapeHtml(coachLabelText(move))+'</span><small>'+((move.cpLoss??"—")+(en?" cp loss":" cp mất"))+'</small></div>').join("")+'</div>':'<p class="feature-note">'+(en?"No critical moments have been recorded yet.":"Chưa ghi nhận thời khắc then chốt nào.")+'</p>')+'</article></div><article class="card coach-panel"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"RECENT MOVE LABELS":"NHÃN NƯỚC ĐI GẦN ĐÂY")+'</span><h3>'+(en?"Move review":"Đánh giá nước đi")+'</h3></div></div>'+(labels.length?'<div class="coach-move-list">'+labels.map(move=>'<div class="coach-move-row"><span>'+escapeHtml(move.san||"—")+'</span><span class="coach-label '+escapeHtml(move.coachLabel)+'">'+escapeHtml(coachLabelText(move))+'</span><small>'+escapeHtml(move.explanation||"")+'</small></div>').join("")+'</div>':'<p class="feature-note">'+(en?"Enable Coach and play against a bot to collect move-by-move labels.":"Bật Coach rồi chơi với bot để ghi nhận nhãn từng nước.")+'</p>')+'</article>';
+  }
+  function renderCoachHint(level) {
+    if(!bestMove){
+      coachHintText=settings.language==="en"?"No engine suggestion is available yet.":"Chưa có gợi ý từ engine.";
+      const pending=$("#coachBoardHint");if(pending){pending.hidden=false;pending.textContent=coachHintText;}
+      if(activeSideRoute==="coach")renderCoachRoute();return;
+    }
+    const from=bestMove.from,to=bestMove.to,piece=board[from],en=settings.language==="en";
+    const file=FILES.indexOf(to[0]),area=file>=2&&file<=5?(en?"the center":"khu trung tâm"):(file<2?(en?"the queenside":"cánh hậu"):(en?"the kingside":"cánh vua"));
+    const pieceNames=en?{p:"pawn",n:"knight",b:"bishop",r:"rook",q:"queen",k:"king"}:{p:"Tốt",n:"Mã",b:"Tượng",r:"Xe",q:"Hậu",k:"Vua"};
+    const san=bestMove.lines?.[0]?.first||from+to;
+    if(level===1)coachHintText=en?"Look at "+area+" and check which piece can improve there.":"Hãy chú ý "+area+" và xem quân nào có thể cải thiện vị trí.";
+    else if(level===2)coachHintText=(en?"Consider moving your ":"Hãy cân nhắc đưa quân ")+(pieceNames[piece?.type]|| (en?"piece":"quân"))+(en?" toward "+area+".":" về "+area+".");
+    else coachHintText=(en?"Suggested move: ":"Nước gợi ý: ")+san+" ("+from+"–"+to+").";
+    const hint=$("#coachBoardHint");if(hint){hint.hidden=false;hint.textContent=coachHintText;}
+    if(activeSideRoute==="coach")renderCoachRoute();
+  }
+  function requestCoachHint(level) {
+    if(!coachEnabled){pushToast(settings.language==="en"?"Turn on Coach first.":"Hãy bật Coach trước.");return;}
+    pendingHintLevel=level;
+    if(bestMove){renderCoachHint(level);pendingHintLevel=0;return;}
+    if(engineBusy){pushToast(settings.language==="en"?"The engine is already thinking.":"Engine đang tính, gợi ý sẽ hiện khi xong.");return;}
+    analyzeForCoach();
+  }
+  function showCoachWhy() {
+    const recent=coachHistory().slice(-1)[0];
+    if(recent?.explanation){coachHintText=recent.explanation;if(activeSideRoute==="coach")renderCoachRoute();const hint=$("#coachBoardHint");if(hint){hint.hidden=false;hint.textContent=coachHintText;}return;}
+    if(bestMove){
+      const line=bestMove.lines?.[0],san=line?.first||bestMove.from+bestMove.to;
+      coachHintText=explainMove(boardFen(),bestMove.from,bestMove.to,bestMove.promotion||"q",san);
+    }else coachHintText=settings.language==="en"?"Analyze a position first so the coach can explain a candidate move.":"Hãy phân tích thế cờ trước để Coach giải thích một nước đi.";
+    const hint=$("#coachBoardHint");if(hint){hint.hidden=false;hint.textContent=coachHintText;}
+    if(activeSideRoute==="coach")renderCoachRoute();
   }
   function routeItemById(id) {
     for(const group of SIDE_MENU_GROUPS){const item=group.items.find(route=>route.id===id);if(item)return {group,item};}
@@ -657,7 +804,7 @@
     $("#screenTitle").textContent=en?item.en:item.vi;$("#routeGroup").textContent=en?group.en:group.vi;
     $("#routeTitle").textContent=en?item.en:item.vi;$("#routeDescription").textContent=en?item.descEn:item.descVi;
     $("#routeIcon").innerHTML=routeIconSVG(item.id);$("#routeStage").textContent=en?"STEP "+item.stage:"BƯỚC "+item.stage;
-    const ready=["bot","history","stats"].includes(routeId);
+    const ready=["bot","coach","history","stats"].includes(routeId);
     $("#routePlaceholder").hidden=ready;$("#featureRouteBody").hidden=!ready;
     if(ready){
       $("#routeStatus").textContent=en?"Available now":"Đã sẵn sàng";
@@ -744,13 +891,19 @@
     let game;
     try{game=new C(boardFen());}catch(_){pushToast("Vị trí chưa hợp lệ để chơi.");return;}
     if(selection&&legalTargets.includes(sq)) {
-      const from=selection;recordUndo();
+      if(engineBusy&&currentJob?.coachSnapshotOnly){engineWorker?.postMessage("stop");engineBusy=false;currentJob=null;$("#engineProgress").hidden=true;}
+      const from=selection,fenBefore=boardFen(),sourceCoach=coachSnapshot?.fen===fenBefore?coachSnapshot:(lastEvaluation?.fen===fenBefore?lastEvaluation:null),beforeCoach=coachEnabled?copyCoachEval(sourceCoach):null,bestBefore=sourceCoach?.bestUci||null;
+      recordUndo();
       try{
         const made=game.move({from,to:sq,promotion:"q"});
         if(!made){undoStack.pop();return;}
         if(botMatch&&!botMatch.finished&&!completeBotMove(made)){undoStack.pop();return;}
         adoptGameFen(game.fen());lastMove={from:made.from,to:made.to};selection=null;legalTargets=[];bestMove=null;
-        if(botMatch&&!botMatch.finished)recordBotMove(made);
+        let coachEntry=null;
+        if(botMatch&&!botMatch.finished)coachEntry=recordBotMove(made);
+        if(coachEnabled&&made.color!==engineColor)coachPendingMove={san:made.san,from:made.from,to:made.to,promotion:made.promotion||"",color:made.color,uci:made.from+made.to+(made.promotion||""),fenBefore:fenBefore,before:beforeCoach,bestUci:bestBefore,matchEntry:coachEntry};
+        else coachPendingMove=null;
+        coachSnapshot=null;lastEvaluation=null;
         renderAll();
         if(botMatch&&!botMatch.finished&&checkBotGameEnd())return;
         if(mode==="engine"&&turn===engineColor)setTimeout(()=>analyze(true,true),160);
@@ -768,10 +921,11 @@
     if(newMode==="engine") {
       const errors=legalCheck();
       if(errors.length){pushToast(errors[0]);return;}
-      mode="engine";engineColor=opposite(turn);selection=null;legalTargets=[];undoStack=[];redoStack=[];
+      mode="engine";engineColor=opposite(turn);selection=null;legalTargets=[];undoStack=[];redoStack=[];coachSnapshot=null;coachPendingMove=null;coachMoveLog=[];coachHintText="";
       pushToast(settings.language==="en"?"You are playing "+(turn==="w"?"White":"Black")+". Use the side button to switch colors.":"Bạn đang chơi "+(turn==="w"?"Trắng":"Đen")+". Chạm nút lượt đi để đổi màu quân.");
     } else {mode="builder";selection=null;legalTargets=[];}
     renderAll();
+    if(newMode==="engine"&&coachEnabled)setTimeout(()=>analyzeForCoach(true),120);
   }
   function setupEngine() {
     if(engineWorker)return true;
@@ -878,7 +1032,7 @@
     if(depth)currentJob.depth=Number(depth);if(nodes)currentJob.nodes=Number(nodes);
     if(multipv===1&&(cp!==undefined||mate!==undefined)) {
       const raw=cp!==undefined?Number(cp):null,rawMate=mate!==undefined?Number(mate):null;
-      currentJob.eval={white:raw===null?0:(currentJob.turn==="w"?raw:-raw),mate:rawMate===null?null:(currentJob.turn==="w"?rawMate:-rawMate),depth:currentJob.depth,nodes:currentJob.nodes};
+      currentJob.eval={white:raw===null?0:(currentJob.turn==="w"?raw:-raw),mate:rawMate===null?null:(currentJob.turn==="w"?rawMate:-rawMate),depth:currentJob.depth,nodes:currentJob.nodes,fen:currentJob.fen};
     }
     if(pv)searchLines[multipv]={uci:pv.trim().split(/\s+/),score:cp!==undefined?Number(cp):null,mate:mate!==undefined?Number(mate):null,depth:currentJob.depth};
     if(currentJob.eval){lastEvaluation=currentJob.eval;renderEvaluation();}
@@ -889,7 +1043,7 @@
     waitingForReady=false;searchLines={};engineBusy=true;
     $("#engineProgress").hidden=false;$("#engineError").hidden=true;
     engineWorker.postMessage("position fen "+currentJob.fen);
-    engineWorker.postMessage("go movetime "+Math.round((Number(settings.think)||3)*1000));
+    engineWorker.postMessage("go movetime "+Math.round(currentJob.coachSnapshotOnly?Math.min(1000,(Number(settings.think)||3)*1000):(Number(settings.think)||3)*1000));
   }
   function analyze(execute,playReply) {
     const errors=legalCheck();
@@ -898,8 +1052,9 @@
     if(engineBusy){pushToast("Engine đang tính. Dừng lượt hiện tại trước.");return;}
     currentJob={fen:boardFen(),turn,execute:!!execute,playReply:!!playReply,depth:0,nodes:0,eval:null};
     bestMove=null;searchLines={};lastEvaluation=null;$("#evalPill").textContent="…";$("#evalScore").textContent="Đang phân tích…";$("#pvList").innerHTML="";drawArrows();
-    currentJob.backend=settings.analysisEngine;
-    if(settings.analysisEngine==="h2c"){
+    const useOnnx=settings.analysisEngine==="h2c"&&!coachEnabled;
+    currentJob.backend=useOnnx?"h2c":"stockfish";
+    if(useOnnx){
       if(!setupOnnxEngine())return;
       if(onnxReady)beginOnnxSearch();
       return;
@@ -937,10 +1092,19 @@
     const from=chosenUci.slice(0,2),to=chosenUci.slice(2,4),promotion=chosenUci[4]||"q";
     bestMove={from,to,promotion,lines,pvs:lines};
     if(currentJob.eval)lastEvaluation=currentJob.eval;
+    if(coachEnabled){
+      if(job.playReply&&coachPendingMove){gradeCoachMove(coachPendingMove,job.eval,lines);coachPendingMove=null;}
+      if(job.eval){
+        const bestUciForPosition=job.playReply?null:(lines[0]?.uci?.split(/\s+/)[0]||match[1]);
+        coachSnapshot=copyCoachEval(Object.assign({},job.eval,{bestUci:bestUciForPosition,fen:job.fen}));
+      }
+    }
     renderBoard();renderEvaluation();renderPv();
+    if(activeSideRoute==="coach"&&job.eval)renderCoachRoute();
     currentJob=null;
     const sanText=lines[0].first||match[1];
     $("#moveExplanation").textContent=explainMove(job.fen,from,to,promotion,sanText);
+    if(pendingHintLevel){renderCoachHint(pendingHintLevel);pendingHintLevel=0;}
     if(job.execute&&(job.playReply||(settings.auto&&mode==="builder"))) {
       applyUciMove(from,to,promotion,job.playReply);
     }
@@ -975,11 +1139,12 @@
       if(!move)return;
       recordUndo();
       if(botMatch&&!botMatch.finished&&!completeBotMove(move)){undoStack.pop();return;}
-      adoptGameFen(g.fen());lastMove={from:move.from,to:move.to};selection=null;legalTargets=[];picked=null;
+      adoptGameFen(g.fen());lastMove={from:move.from,to:move.to};selection=null;legalTargets=[];picked=null;coachSnapshot=null;lastEvaluation=null;bestMove=null;
       if(botMatch&&!botMatch.finished)recordBotMove(move);
       renderAll();
       if(engineReply)pushToast((engineName||"Engine")+" "+move.san);
-      if(botMatch&&!botMatch.finished)checkBotGameEnd();
+      const ended=botMatch&&!botMatch.finished?checkBotGameEnd():false;
+      if(engineReply&&coachEnabled&&!ended)setTimeout(()=>analyzeForCoach(true),160);
     }catch(_){pushToast(settings.language==="en"?"Could not apply the engine move to this position.":"Khong the ap dung nuoc di cua engine.");}
   }
   function stopEngine() {
@@ -998,6 +1163,7 @@
       const last=botMatch.moves[botMatch.moves.length-1],count=last&&last.color===engineColor?Math.min(2,undoStack.length):Math.min(1,undoStack.length);
       if(!count){pushToast("Chưa có nước để đi lại.");return;}
       for(let i=0;i<count;i++){redoStack.push(clonePosition());restorePosition(undoStack.pop());botMatch.moves.pop();}
+      coachMoveLog=coachMoveLog.filter(move=>botMatch.moves.includes(move));coachPendingMove=null;
       renderAll();if(turn===engineColor)setTimeout(()=>analyze(true,true),120);return;
     }
     if(!undoStack.length){pushToast("Không còn thao tác để hoàn tác.");return;}
@@ -1195,6 +1361,7 @@
     $("#drawerClose").addEventListener("click",()=>closeSideDrawer(true));
     $("#drawerScrim").addEventListener("click",()=>closeSideDrawer(true));
     $("#routeHome").addEventListener("click",()=>setScreen("h2c",true));
+    $("#coachToggle").addEventListener("click",toggleCoach);
     $("#resignBotGame").addEventListener("click",()=>{if(!botMatch||botMatch.finished)return;showModal(settings.language==="en"?"Resign this game?":"Xin thua ván này?",'<p>'+(settings.language==="en"?"The game will be saved as a loss.":"Ván sẽ được lưu là một trận thua.")+'</p>',[{label:settings.language==="en"?"Keep playing":"Tiếp tục",value:"keep"},{label:settings.language==="en"?"Resign":"Xin thua",className:"btn-primary",value:"resign"}]).then(value=>{if(value==="resign")finishBotMatch(opposite(botMatch.playerColor),"resign");});});
     $("#featureRouteBody").addEventListener("click",handleFeatureClick);
     $("#featureRouteBody").addEventListener("change",handleFeatureChange);
