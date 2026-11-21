@@ -45,6 +45,13 @@
     {id:"sample-tactic",name:"Back-rank tactic",group:"Tactics",fen:"6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1",note:"Rook lift & king safety"},
     {id:"sample-mate",name:"Mate in one",group:"Tactics",fen:"7k/6pp/5K2/8/8/8/6PP/5R2 w - - 0 1",note:"Find the forcing move"}
   ];
+
+  const SIDE_MENU_GROUPS = [{"vi":"CHƠI","en":"PLAY","items":[{"id":"bot","vi":"Chơi với Bot","en":"Play bots","stage":2,"descVi":"Chọn bot theo Elo, tính cách và cài đặt ván đấu.","descEn":"Choose a bot by Elo, personality, and game settings."},{"id":"coach","vi":"Huấn luyện viên","en":"Coach","stage":3,"descVi":"Nhận nhãn nước đi, gợi ý theo từng mức và lời giải thích.","descEn":"Review move quality, hints, and concise explanations."}]},{"vi":"PHÂN TÍCH & HỒ SƠ","en":"ANALYSIS & PROFILE","items":[{"id":"stats","vi":"Thống kê","en":"Statistics","stage":2,"descVi":"Theo dõi kết quả, độ chính xác, rating và thói quen luyện tập.","descEn":"Track results, accuracy, rating, and training activity."},{"id":"tournaments","vi":"Giải đấu","en":"Tournaments","stage":5,"descVi":"Tổ chức giải nội bộ và xem lịch giải công khai.","descEn":"Run local bot tournaments and browse public events."},{"id":"variants","vi":"Biến thể","en":"Variants","stage":5,"descVi":"Khám phá Chess960 và các luật chơi biến thể.","descEn":"Explore Chess960 and other chess variants."},{"id":"history","vi":"Lịch sử ván đấu","en":"Game history","stage":2,"descVi":"Tìm, lọc, nhập hoặc xuất các ván đã lưu.","descEn":"Search, filter, import, and export saved games."}]},{"vi":"CÂU ĐỐ","en":"PUZZLES","items":[{"id":"puzzles","vi":"Câu đố","en":"Puzzle library","stage":4,"descVi":"Luyện chiến thuật theo chủ đề và độ khó.","descEn":"Practice tactics by theme and difficulty."},{"id":"daily","vi":"Câu đố hàng ngày","en":"Daily puzzle","stage":4,"descVi":"Giải một bài mỗi ngày và duy trì chuỗi luyện tập.","descEn":"Solve one puzzle per day and maintain your streak."},{"id":"puzzle-rush","vi":"Câu đố nhanh","en":"Puzzle rush","stage":4,"descVi":"Chạy đua giải câu đố trong thời gian giới hạn.","descEn":"Race through puzzles against a timer."},{"id":"puzzle-custom","vi":"Tạo câu đố","en":"Create a puzzle","stage":4,"descVi":"Dựng thế cờ và lưu lời giải của riêng bạn.","descEn":"Build a position and save your own solution."},{"id":"puzzle-duel","vi":"Đấu cờ thế","en":"Puzzle duel","stage":4,"descVi":"Thi giải cùng một bộ câu đố với đối thủ.","descEn":"Race an opponent through the same puzzle set."}]},{"vi":"THEO DÕI","en":"FOLLOW","items":[{"id":"featured","vi":"Sự kiện nổi bật","en":"Featured event","stage":6,"descVi":"Theo dõi giải cờ lớn đang diễn ra.","descEn":"Follow a featured live chess event."},{"id":"events","vi":"Lịch sự kiện","en":"Event calendar","stage":6,"descVi":"Xem giải sắp tới và thêm nhắc lịch.","descEn":"Browse upcoming events and add reminders."},{"id":"tv","vi":"H2C TV","en":"H2C TV","stage":6,"descVi":"Xem các ván cờ trực tiếp trên bàn cờ How2Chess.","descEn":"Watch live games on the How2Chess board."},{"id":"streamers","vi":"Streamer","en":"Streamers","stage":6,"descVi":"Tìm kênh cờ đang phát và mở trang của họ.","descEn":"Find live chess channels and open their pages."},{"id":"play","vi":"Chơi ngay","en":"Play now","stage":6,"descVi":"Bắt đầu nhanh với bot gần mức rating của bạn.","descEn":"Start a quick game with a bot near your rating."}]}];
+  const ROUTE_ICON_PATHS = {"bot":"<path d=\"M18 12a7 7 0 1 0-14 0v3a3 3 0 0 0 3 3h2v-6H7m8 0h3v3a3 3 0 0 1-3 3h-2v-6\"/><path d=\"M11 7h4m-2-3v3m-3 5h.01m5 0h.01\"/>","coach":"<path d=\"M7 6h14v11H13l-4 4v-4H7a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z\"/><path d=\"m14 8 .9 2 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3Z\"/>","stats":"<path d=\"M6 21V12h4v9m3 0V6h4v15m3 0V3h4v18M4 21h20\"/>","tournaments":"<path d=\"M9 5h10v4a5 5 0 0 1-10 0V5Z\"/><path d=\"M9 7H6v2a4 4 0 0 0 4 4m8-6h3v2a4 4 0 0 1-4 4m-4 0v5m-4 3h12m-10 0v-3h8v3\"/>","variants":"<path d=\"m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z\"/><path d=\"m4 7.5 8 4.7 8-4.7M12 12.2V21m-4-16.8v4m8-4v4m-8 5v4m8-4v4\"/>","history":"<circle cx=\"12\" cy=\"13\" r=\"8\"/><path d=\"M12 8v5l3 2M7 3 4 6l3 2\"/>","puzzles":"<path d=\"M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3Z\"/><path d=\"M9 21h6m-5-8 2 2 3-4\"/>","daily":"<rect x=\"4\" y=\"6\" width=\"16\" height=\"15\" rx=\"3\"/><path d=\"M8 3v5m8-5v5M4 10h16m-11 4h.01m4 0h.01m-4 3h.01\"/>","puzzle-rush":"<circle cx=\"12\" cy=\"13\" r=\"8\"/><path d=\"M12 8v5l3 2M9 3h6m-3 0v2m6 1 2-2\"/>","puzzle-custom":"<path d=\"M4 4h16v16H4zM9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16\"/><path d=\"M19 3v6m-3-3h6\"/>","puzzle-duel":"<path d=\"m5 5 14 14M19 5 5 19\"/><path d=\"m4 4 3 1-2 2m15-3-3 1 2 2M4 20l3-1-2-2m15 3-3-1 2-2\"/>","featured":"<path d=\"m12 3 2.7 5.4 6 .9-4.3 4.2 1 6-5.4-2.9-5.4 2.9 1-6-4.3-4.2 6-.9L12 3Z\"/>","events":"<rect x=\"4\" y=\"5\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"M8 3v4m8-4v4M4 9h16m-11 4h.01m4 0h.01m-4 3h.01\"/>","tv":"<rect x=\"4\" y=\"7\" width=\"16\" height=\"13\" rx=\"3\"/><path d=\"m9 4 3 3 3-3m-3 6 5 3.5-5 3.5v-7Z\"/>","streamers":"<path d=\"M12 17a2 2 0 1 0 0 .01M7 12a7 7 0 0 0 0 10m10-10a7 7 0 0 1 0 10M3 8a13 13 0 0 0 0 18m18-18a13 13 0 0 1 0 18\"/>","play":"<path d=\"M5 7h13l-3-3m3 3-3 3M19 17H6l3 3m-3-3 3-3\"/><circle cx=\"5\" cy=\"7\" r=\"1\"/>"};
+  let activeSideRoute = null;
+  let sideDrawerOpen = false;
+  let sideTouchStartX = null;
+
   const EN_TEXT = {
     "Đọc thế cờ.":"Read the position.","Tìm nước hay.":"Find the better move.",
     "Dựng vị trí của bạn, để Stockfish phân tích và lưu mọi ý tưởng vào một thư viện riêng — tất cả ngay trên thiết bị.":"Set up a position, let Stockfish analyze it, and save your ideas to a personal library — right on your device.",
@@ -332,8 +339,77 @@
     document.documentElement.dataset.theme=effective;
     $("#themeSelect").value=theme;persistPrefs();
   }
+
+  function routeItemById(id) {
+    for(const group of SIDE_MENU_GROUPS){const item=group.items.find(route=>route.id===id);if(item)return {group,item};}
+    return null;
+  }
+  function routeIconSVG(id) {
+    const path=ROUTE_ICON_PATHS[id]||'<circle cx="12" cy="12" r="6"/>';
+    return '<svg viewBox="0 0 28 28" aria-hidden="true" focusable="false"><defs><linearGradient id="g-'+id+'" x1="0" y1="0" x2="1" y2="1"><stop stop-color="var(--pr)" stop-opacity=".28"/><stop offset="1" stop-color="var(--gd)" stop-opacity=".18"/></linearGradient></defs><rect x="1" y="1" width="26" height="26" rx="9" fill="url(#g-'+id+')"/><g transform="translate(2 2)" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">'+path+'</g></svg>';
+  }
+  function renderDrawerMenu() {
+    const nav=$("#drawerNavigation");if(!nav)return;
+    const en=settings.language==="en";
+    nav.innerHTML=SIDE_MENU_GROUPS.map(group=>'<section class="drawer-group"><p class="drawer-group-title">'+(en?group.en:group.vi)+'</p>'+group.items.map(route=>'<a class="drawer-link" href="#/'+route.id+'" data-route="'+route.id+'" aria-label="'+(en?route.en:route.vi)+'"><span class="drawer-icon">'+routeIconSVG(route.id)+'</span><span>'+ (en?route.en:route.vi) +'</span><svg class="drawer-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></a>').join("")+'</section>').join("");
+    $("#drawerHeading").textContent=en?"Explore":"Khám phá";
+    $("#drawerFootnote").textContent=en?"Your chess tools, stored locally.":"Công cụ cờ vua của bạn, lưu cục bộ.";
+  }
+  function openSideDrawer() {
+    const drawer=$("#sideDrawer");if(!drawer)return;
+    sideDrawerOpen=true;drawer.classList.add("open");drawer.setAttribute("aria-hidden","false");
+    $("#drawerScrim").hidden=false;$("#drawerToggle").setAttribute("aria-expanded","true");
+    requestAnimationFrame(()=>$("#drawerClose").focus());
+  }
+  function closeSideDrawer(restoreFocus=false) {
+    const drawer=$("#sideDrawer");if(!drawer)return;
+    sideDrawerOpen=false;drawer.classList.remove("open");drawer.setAttribute("aria-hidden","true");
+    $("#drawerScrim").hidden=true;$("#drawerToggle").setAttribute("aria-expanded","false");
+    if(restoreFocus)$("#drawerToggle").focus();
+  }
+  function renderSideRoute(routeId,scroll=true) {
+    const found=routeItemById(routeId);
+    if(!found){routeId="bot";}
+    const {group,item}=routeItemById(routeId);
+    const en=settings.language==="en";
+    activeSideRoute=routeId;
+    $$(".screen").forEach(screen=>screen.classList.toggle("active",screen.id==="routeScreen"));
+    $("#routeScreen").setAttribute("aria-hidden","false");
+    $("#screenTitle").textContent=en?item.en:item.vi;
+    $("#routeGroup").textContent=en?group.en:group.vi;
+    $("#routeTitle").textContent=en?item.en:item.vi;
+    $("#routeDescription").textContent=en?item.descEn:item.descVi;
+    $("#routeIcon").innerHTML=routeIconSVG(item.id);
+    $("#routeStage").textContent=en?"STEP "+item.stage:"BƯỚC "+item.stage;
+    $("#routeStatus").textContent=en?"Screen frame is ready":"Khung màn hình đã sẵn sàng";
+    $("#routeStatusDescription").textContent=en
+      ?"This route is connected. Its feature set will be added in step "+item.stage+"."
+      :"Đường dẫn đã hoạt động. Tính năng của màn hình này sẽ được thêm ở bước "+item.stage+".";
+    $("#routeHomeLabel").textContent=en?"Back to H2C":"Về H2C";
+    $$(".drawer-link").forEach(link=>{if(link.dataset.route===routeId)link.setAttribute("aria-current","page");else link.removeAttribute("aria-current");});
+    $("#floatingAdd").hidden=true;$("#landing").hidden=true;$("#landingReturn").hidden=true;
+    closeSideDrawer(false);
+    translateDocument();
+    if(scroll)$("#app").scrollIntoView({behavior:settings.motion?"smooth":"auto",block:"start"});
+  }
+  function routeFromHash() {
+    const match=location.hash.match(/^#\/([a-z0-9-]+)\/?$/i);
+    if(match){renderSideRoute(match[1]);return;}
+    if(activeSideRoute){activeSideRoute=null;setScreen($(".navtab.active")?.dataset.screen||"h2c",false);}
+  }
+  function navigateSideRoute(id) {
+    const hash="#/"+id;
+    closeSideDrawer(false);
+    if(location.hash===hash)renderSideRoute(id,false);else location.hash=hash;
+  }
+
   function setScreen(name,fromLanding) {
+    activeSideRoute=null;
+    if(location.hash.startsWith("#/"))history.replaceState(null,"",location.pathname+location.search);
+    closeSideDrawer(false);
     $$(".screen").forEach(s=>s.classList.toggle("active",s.id==="screen-"+name));
+    $("#routeScreen").setAttribute("aria-hidden","true");
+    $$(".drawer-link").forEach(link=>link.removeAttribute("aria-current"));
     $$(".navtab").forEach(t=>{const active=t.dataset.screen===name;t.classList.toggle("active",active);if(active)t.setAttribute("aria-current","page");else t.removeAttribute("aria-current");});
     const titles={h2c:"Bàn phân tích",library:"Library",options:"Options"};
     $("#screenTitle").textContent=titles[name]||"How2Chess";
@@ -344,6 +420,7 @@
     translateDocument();
     $("#app").scrollIntoView({behavior:settings.motion?"smooth":"auto",block:"start"});
   }
+
   function restoreLanding() { $("#landing").hidden=false;$("#landingReturn").hidden=true;window.scrollTo({top:0,behavior:settings.motion?"smooth":"auto"}); }
   function snapshotSettingsToUI() {
     $("#thinkTime").value=settings.think;$("#thinkValue").textContent=settings.think+" "+(settings.language==="en"?"sec":"giây");
@@ -366,6 +443,8 @@
     $("#calculateBtn").querySelector("span:nth-child(2)").textContent=labels.calculate;
     $("#builderMode").textContent=labels.builder;$("#engineMode").textContent=labels.engine;
     renderAll();
+    renderDrawerMenu();
+    if(activeSideRoute)renderSideRoute(activeSideRoute,false);
   }
 
   function selectBoardSquare(sq) {
@@ -811,6 +890,25 @@
   }
 
   function bindEvents() {
+    $("#drawerToggle").addEventListener("click",()=>sideDrawerOpen?closeSideDrawer():openSideDrawer());
+    $("#drawerClose").addEventListener("click",()=>closeSideDrawer(true));
+    $("#drawerScrim").addEventListener("click",()=>closeSideDrawer(true));
+    $("#routeHome").addEventListener("click",()=>setScreen("h2c",true));
+    $("#drawerNavigation").addEventListener("click",event=>{
+      const link=event.target.closest("[data-route]");if(!link)return;
+      event.preventDefault();navigateSideRoute(link.dataset.route);
+    });
+    window.addEventListener("hashchange",routeFromHash);
+    window.addEventListener("keydown",event=>{if(event.key==="Escape"&&sideDrawerOpen){event.preventDefault();closeSideDrawer(true);}});
+    window.addEventListener("touchstart",event=>{if(event.touches.length===1)sideTouchStartX=event.touches[0].clientX;},{passive:true});
+    window.addEventListener("touchend",event=>{
+      if(sideTouchStartX===null||!event.changedTouches.length)return;
+      const delta=event.changedTouches[0].clientX-sideTouchStartX;
+      if(!sideDrawerOpen&&sideTouchStartX<=22&&delta>=72)openSideDrawer();
+      else if(sideDrawerOpen&&delta<=-72)closeSideDrawer(false);
+      sideTouchStartX=null;
+    },{passive:true});
+
     $("#openAppBtn").addEventListener("click",()=>setScreen("h2c",true));
     $("#installBtn").addEventListener("click",installApp);
     $("#themeQuick").addEventListener("click",()=>{const current=document.documentElement.dataset.theme;setTheme(current==="dark"?"light":"dark");});
@@ -915,7 +1013,7 @@
       pushToast("Không tải được chess.js. Kiểm tra kết nối internet rồi tải lại.");
     }
     setTheme(settings.theme);snapshotSettingsToUI();updateLanguage();renderHeroBoard();renderAll();renderLibrary();bindEvents();installServiceWorker();
-    if(new URLSearchParams(location.search).get("app")==="1"){setScreen("h2c",true);}
+    if(new URLSearchParams(location.search).get("app")==="1"){setScreen("h2c",true);}else{routeFromHash();}
   }
   initialize();
 })();
