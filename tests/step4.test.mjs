@@ -8,9 +8,9 @@ const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
 
 test("Puzzle routes are registered in the drawer, hash router and renderer", () => {
   for (const id of ["puzzles", "daily", "puzzle-rush", "puzzle-custom", "puzzle-duel"]) {
-    assert.ok(app.includes('id: "' + id + '"'), id + " appears in the menu");
+    assert.ok(app.includes('"id":"' + id + '"'), id + " appears in the menu");
     assert.ok(app.includes('activeSideRoute==="' + id + '"'), id + " has a page renderer");
-    assert.ok(app.includes('data-route="' + id + '"'), id + " is reachable from the drawer");
+    assert.ok(app.includes('data-route="\'+route.id+\'"'), id + " is reachable from the drawer");
   }
   assert.match(app, /location\.hash\.match/);
 });
@@ -63,5 +63,6 @@ test("Puzzle screens and the H2C board use one square renderer with mobile layou
 });
 
 test("Puzzle updates invalidate offline service-worker assets", () => {
-  assert.match(sw, /const CACHE_NAME = "how2chess-v4"/);
+  assert.match(sw, /const CACHE_NAME = "how2chess-v5"/);
 });
+

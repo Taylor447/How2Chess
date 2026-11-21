@@ -60,6 +60,25 @@
   let coachEnabled = store.get("h2c-coach-enabled","0")==="1";
   let coachSnapshot = null, coachPendingMove = null, coachMoveLog = [], coachHintText = "", pendingHintLevel = 0;
 
+  const H2C_VARIANTS = [
+    {id:"chess960",vi:"Chess960",en:"Chess960",rules:"chess",descriptionVi:"Vị trí hàng cuối được xáo ngẫu nhiên; vẫn thắng bằng chiếu hết.",descriptionEn:"The back rank is randomized; checkmate is still the goal."},
+    {id:"kingofthehill",vi:"King of the Hill",en:"King of the Hill",rules:"kingofthehill",descriptionVi:"Đưa Vua vào một trong bốn ô trung tâm để thắng.",descriptionEn:"Move your king to one of the four center squares to win."},
+    {id:"threecheck",vi:"Three-check",en:"Three-check",rules:"3check",descriptionVi:"Chiếu đối thủ ba lần để giành chiến thắng.",descriptionEn:"Give the opponent check three times to win."},
+    {id:"crazyhouse",vi:"Crazyhouse",en:"Crazyhouse",rules:"crazyhouse",descriptionVi:"Quân bị ăn chuyển vào kho và có thể thả lại lên bàn.",descriptionEn:"Captured pieces enter your pocket and can be dropped back onto the board."},
+    {id:"horde",vi:"Horde",en:"Horde",rules:"horde",descriptionVi:"Một bên điều khiển đội quân Tốt đông đảo đối đầu quân cờ đầy đủ.",descriptionEn:"A pawn horde faces a full chess army."},
+    {id:"atomic",vi:"Atomic",en:"Atomic",rules:"atomic",descriptionVi:"Quân bị ăn phát nổ và làm biến mất các quân lân cận.",descriptionEn:"Captures explode and remove nearby pieces."},
+    {id:"racingkings",vi:"Racing Kings",en:"Racing Kings",rules:"racingkings",descriptionVi:"Đua Vua tới hàng cuối; nước đi chiếu không được phép.",descriptionEn:"Race your king to the back rank; checks are forbidden."}
+  ];
+  let variantToolsPromise=null,variantLoading=false,variantLoadError="",variantMatch=null;
+  let variantSelectedSquare=null,variantLegalTargets=[],variantDropRole=null,variantLastMove=null,variantOrientation="w",variantBotTimer=null;
+  let variantHumanColor="white",variantBotElo=1000;
+  let variantGames=parseJSON(store.get("h2c-variant-games","[]"),[]);if(!Array.isArray(variantGames))variantGames=[];
+  const defaultTournamentBots=BOT_CATALOG.filter((_,index)=>[0,5,10,15].includes(index)).map(bot=>bot.id);
+  let selectedTournamentBotIds=parseJSON(store.get("h2c-tournament-selection",JSON.stringify(defaultTournamentBots)),defaultTournamentBots);
+  if(!Array.isArray(selectedTournamentBotIds))selectedTournamentBotIds=defaultTournamentBots.slice();
+  let tournamentHistory=parseJSON(store.get("h2c-tournaments","[]"),[]);if(!Array.isArray(tournamentHistory))tournamentHistory=[];
+  let tournamentState=null,tournamentStopRequested=false,tournamentFormatChoice="round-robin";
+
   const STARTER_PUZZLES = [
     {id:"h2c-mate-g7",name:"Chiếu hết bằng Hậu",fen:"7k/8/5KQ1/8/8/8/8/8 w - - 0 1",solution:["g6g7"],rating:900,themes:["mateIn1"],source:"How2Chess"},
     {id:"h2c-rook-wins-queen",name:"Xe bắt Hậu",fen:"3q4/k7/8/8/8/8/8/3RK3 w - - 0 1",solution:["d1d8"],rating:700,themes:["hangingPiece"],source:"How2Chess"},
@@ -589,7 +608,134 @@
     mountPuzzlePanel(en?"90-SECOND DUEL":"ĐẤU CỜ THẾ · 90 GIÂY",en?"Solve before the bot's timer expires.":"Giải trước khi bộ đếm của Bot về 0.",extra,false);
   }
 
-function renderActiveFeatureRoute() {
+  function loadVariantTools(){if(!variantToolsPromise)variantToolsPromise=import("./variant-runtime.mjs").catch(error=>{variantToolsPromise=null;throw error;});return variantToolsPromise;}
+  function variantCurrent(){return variantMatch?.game||null;}
+  function variantMoveHistoryText(){if(!variantMatch)return "";return variantMatch.moves.slice(-18).map(item=>'<span class="variant-move '+(item.color==="white"?"white":"black")+'"><small>'+item.number+(item.color==="white"?".":"…")+'</small>'+escapeHtml(item.san||item.uci)+'</span>').join("");}
+  function variantPocketHTML(){
+    const game=variantCurrent(),pockets=game?.pockets;if(!pockets)return "";
+    const roles=["queen","rook","bishop","knight","pawn"],char={queen:"q",rook:"r",bishop:"b",knight:"n",pawn:"p"};
+    return ["black","white"].map(color=>'<div class="variant-pocket-row" aria-label="'+color+' pocket">'+roles.map(role=>{const count=pockets[color][role]||0,disabled=!count||game.turn!==(color==="white"?"w":"b")||game.turn!==(variantHumanColor==="white"?"w":"b")||variantMatch.finished;return '<button type="button" class="variant-pocket-piece '+(variantDropRole===role&&game.turn===(color==="white"?"w":"b")?"selected":"")+'" data-variant-drop="'+role+'" data-pocket-color="'+color+'" aria-label="'+color+" "+role+" × "+count+'"'+(disabled?" disabled":"")+'>'+pieceSymbol({type:char[role],color:color==="white"?"w":"b"})+'<small>'+count+'</small></button>';}).join("")+'</div>').join("");
+  }
+  function variantStatusText(){
+    const game=variantCurrent(),en=settings.language==="en";if(!variantMatch)return "";
+    if(variantMatch.finished)return variantMatch.resultText|| (en?"Game finished.":"Ván cờ đã kết thúc.");
+    if(variantMatch.thinking)return en?"H2C Bot is thinking…":"H2C Bot đang tính nước…";
+    if(game.check)return en?(game.turn==="w"?"White is in check":"Black is in check"):(game.turn==="w"?"Trắng đang bị chiếu":"Đen đang bị chiếu");
+    const checks=game.checkCounts;if(checks)return en?"Checks remaining — White: "+checks.white+" · Black: "+checks.black:"Số lần chiếu còn — Trắng: "+checks.white+" · Đen: "+checks.black;
+    return game.turn===(variantHumanColor==="white"?"w":"b")?(en?"Your turn":"Lượt của bạn"):(en?"H2C Bot to move":"Lượt H2C Bot");
+  }
+  function renderVariantsRoute(){
+    const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en";
+    if(!variantMatch){
+      const cards=H2C_VARIANTS.map(item=>'<article class="card variant-card"><div class="variant-card-head"><span class="route-icon">'+routeIconSVG("variants")+'</span><div><h3>'+escapeHtml(en?item.en:item.vi)+'</h3><p>'+escapeHtml(en?item.descriptionEn:item.descriptionVi)+'</p></div></div><button class="btn btn-primary" type="button" data-variant-start="'+item.id+'">'+(en?"Play":"Chơi")+'</button></article>').join("");
+      host.innerHTML='<section class="card feature-intro variant-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"LOCAL VARIANTS":"BIẾN THỂ CỜ")+'</span><h3>'+(en?"Try a different set of rules":"Đổi luật, đổi chiến thuật")+'</h3><p>'+(en?"Variant moves are validated locally by chessops; the opponent is a lightweight H2C bot, not Stockfish.":"Luật đi quân được kiểm tra cục bộ bằng chessops; đối thủ là H2C Bot gọn nhẹ, không phải Stockfish.")+'</p></div><div class="field-row"><label class="field-label" for="variantColorChoice">'+(en?"Play as":"Bạn cầm quân")+'</label><select id="variantColorChoice"><option value="white"'+(variantHumanColor==="white"?" selected":"")+'>'+(en?"White":"Trắng")+'</option><option value="black"'+(variantHumanColor==="black"?" selected":"")+'>'+(en?"Black":"Đen")+'</option></select><label class="field-label" for="variantBotElo">'+(en?"Bot level":"Elo Bot")+'</label><input id="variantBotElo" type="range" min="250" max="2200" step="50" value="'+variantBotElo+'"><span id="variantBotEloValue">'+variantBotElo+' Elo</span></div></section>'+(variantLoadError?'<p class="variant-error" role="alert">'+escapeHtml(variantLoadError)+'</p>':"")+'<div class="variant-card-grid">'+cards+'</div><section class="card variant-history"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"RECENT VARIANT GAMES":"VÁN BIẾN THỂ GẦN ĐÂY")+'</span><h3>'+(en?"Saved locally":"Đã lưu trên thiết bị")+'</h3></div><strong>'+variantGames.length+'</strong></div>'+(variantGames.length?variantGames.slice(0,6).map(game=>'<div class="variant-history-row"><span>'+escapeHtml(game.name)+' · '+escapeHtml(game.result)+'</span><small>'+new Date(game.date).toLocaleDateString(settings.language==="en"?"en-US":"vi-VN")+'</small></div>').join(""):'<p class="feature-note">'+(en?"Completed games will appear here.":"Các ván đã kết thúc sẽ hiện tại đây.")+'</p>')+'</section>';
+      return;
+    }
+    const match=variantMatch,item=H2C_VARIANTS.find(row=>row.id===match.variantId),game=match.game,canUndo=match.undo.length>0;
+    host.innerHTML='<section class="card variant-game-head"><div><span class="eyebrow eyebrow-soft">'+(en?"VARIANT GAME":"VÁN BIẾN THỂ")+'</span><h3>'+escapeHtml(en?item.en:item.vi)+'</h3><p>'+escapeHtml(variantStatusText())+'</p></div><div class="variant-head-actions"><span class="variant-bot-badge">H2C Bot · '+variantBotElo+'</span><button class="btn btn-soft" type="button" data-variant-new>'+(en?"New game":"Ván mới")+'</button></div></section><div class="variant-game-layout"><section class="variant-board-section"><div class="variant-pocket-stack" id="variantPockets">'+variantPocketHTML()+'</div><div id="variantBoardMount"></div><div class="variant-game-actions"><button class="btn btn-soft" type="button" data-variant-undo'+(!canUndo||match.finished?" disabled":"")+'>'+(en?"Undo":"Đi lại")+'</button><button class="btn btn-soft" type="button" data-variant-flip>'+(en?"Flip board":"Lật bàn")+'</button><button class="btn btn-danger" type="button" data-variant-resign'+(match.finished?" disabled":"")+'>'+(en?"Resign":"Xin thua")+'</button></div></section><aside class="card variant-side-panel"><div class="variant-status" id="variantStatus" aria-live="polite">'+escapeHtml(variantStatusText())+'</div><div class="variant-move-list" aria-label="'+(en?"Move history":"Lịch sử nước đi")+'">'+(variantMoveHistoryText()||'<span class="feature-note">'+(en?"No moves yet.":"Chưa có nước đi.")+'</span>')+'</div><small class="puzzle-origin">'+(en?"Rules and legal moves run locally. Game records are saved on this device.":"Luật và nước đi hợp lệ chạy cục bộ. Ván được lưu trên thiết bị này.")+'</small></aside></div>';
+    renderVariantBoard();
+  }
+  function renderVariantBoard(){
+    const mount=$("#variantBoardMount");if(!mount||!variantMatch)return;const game=variantMatch.game,checked=game.check?(game.turn==="w"?"w":"b"):null;
+    const parts=puzzleBoardParts(fenBoard(game.fen),variantOrientation,{selected:variantSelectedSquare,legalTargets:variantLegalTargets,lastMove:variantLastMove,checkedColor:checked},"data-variant-square");
+    mount.innerHTML='<div class="board-frame variant-board-frame"><div class="board-coords ranks" aria-hidden="true">'+parts.ranks+'</div><div class="board-grid" role="grid" aria-label="'+(settings.language==="en"?"Variant chessboard":"Bàn cờ biến thể")+'">'+parts.squares+'</div><div class="board-coords files" aria-hidden="true">'+parts.files+'</div><svg class="arrow-layer" viewBox="0 0 800 800" aria-hidden="true"></svg></div>';
+    const pocket=$("#variantPockets");if(pocket)pocket.innerHTML=variantPocketHTML();
+  }
+  async function startVariantGame(id){
+    if(variantBotTimer){clearTimeout(variantBotTimer);variantBotTimer=null;}variantLoading=true;variantLoadError="";variantMatch=null;renderVariantsRoute();
+    try{const tools=await loadVariantTools(),game=await tools.createVariantGame(id,Math.floor(Math.random()*960));
+      variantMatch={variantId:id,game,moves:[],undo:[],positionKeys:{},finished:false,thinking:false,result:null,resultText:""};
+      variantHumanColor=$("#variantColorChoice")?.value||variantHumanColor;variantBotElo=Number($("#variantBotElo")?.value)||variantBotElo;variantOrientation=variantHumanColor==="white"?"w":"b";variantSelectedSquare=null;variantLegalTargets=[];variantDropRole=null;variantLastMove=null;variantLoading=false;
+      rememberVariantPosition();renderVariantsRoute();if(game.turn!==(variantHumanColor==="white"?"w":"b"))scheduleVariantBotMove();
+    }catch(error){variantLoading=false;variantLoadError=settings.language==="en"?"Variant rules could not load. Connect once and retry.":"Không tải được luật biến thể. Hãy kết nối mạng một lần rồi thử lại.";renderVariantsRoute();pushToast(error?.message||variantLoadError);}
+  }
+  function rememberVariantPosition(){if(!variantMatch)return;const key=variantMatch.game.fen.split(" ").slice(0,4).join(" ");variantMatch.positionKeys[key]=(variantMatch.positionKeys[key]||0)+1;}
+  function variantTerminalResult(){
+    if(!variantMatch)return null;const game=variantMatch.game,outcome=game.result;
+    if(outcome)return {result:outcome.winner==="white"?"1-0":outcome.winner==="black"?"0-1":"½-½",winner:outcome.winner,reason:outcome.winner?(game.check?"checkmate":"variant win"):"draw"};
+    const key=game.fen.split(" ").slice(0,4).join(" ");if((variantMatch.positionKeys[key]||0)>=3)return {result:"½-½",reason:"threefold repetition"};
+    if(game.halfmoves>=100)return {result:"½-½",reason:"50-move rule"};return null;
+  }
+  function finishVariantGame(result,reason){
+    if(!variantMatch||variantMatch.finished)return;variantMatch.finished=true;variantMatch.result=result;const item=H2C_VARIANTS.find(row=>row.id===variantMatch.variantId),en=settings.language==="en";
+    variantMatch.resultText=(result==="½-½"?(en?"Draw":"Hòa"):result==="1-0"?(en?"White wins":"Trắng thắng"):(en?"Black wins":"Đen thắng"))+" · "+(reason||"");
+    const saved={id:"variant-"+Date.now().toString(36),date:new Date().toISOString(),variantId:item.id,name:en?item.en:item.vi,result,reason:reason||"",moves:variantMatch.moves.map(move=>move.uci),plies:variantMatch.moves.length,fen:variantMatch.game.fen};
+    variantGames.unshift(saved);variantGames=variantGames.slice(0,200);store.set("h2c-variant-games",JSON.stringify(variantGames));renderVariantsRoute();
+  }
+  function playVariantMove(uci){
+    if(!variantMatch||variantMatch.finished||variantMatch.thinking)return false;const game=variantMatch.game;
+    variantMatch.undo.push({game:game.clone(),moves:variantMatch.moves.slice(),positionKeys:Object.assign({},variantMatch.positionKeys)});
+    const color=game.turn==="w"?"white":"black",number=game.position?.fullmoves||Math.floor(variantMatch.moves.length/2)+1,played=game.play(uci);
+    if(!played){variantMatch.undo.pop();return false;}variantMatch.moves.push({uci:played.uci,san:played.san,color,number});
+    const to=played.uci.includes("@")?played.uci.slice(2):played.uci.slice(2,4),from=played.uci.includes("@")?null:played.uci.slice(0,2);variantLastMove={from,to};variantSelectedSquare=null;variantLegalTargets=[];variantDropRole=null;rememberVariantPosition();
+    const terminal=variantTerminalResult();if(terminal){finishVariantGame(terminal.result,terminal.reason);return true;}
+    renderVariantsRoute();if(variantMatch.game.turn!==(variantHumanColor==="white"?"w":"b"))scheduleVariantBotMove();return true;
+  }
+  function handleVariantSquare(square){
+    if(!variantMatch||variantMatch.finished||variantMatch.thinking||variantMatch.game.turn!==(variantHumanColor==="white"?"w":"b"))return;const game=variantMatch.game;
+    if(variantDropRole){if(variantLegalTargets.includes(square)){playVariantMove(variantDropRole.toUpperCase()+"@"+square);return;}variantDropRole=null;variantLegalTargets=[];}
+    if(variantSelectedSquare&&variantLegalTargets.includes(square)){
+      const moves=game.legalMoves().filter(move=>move.from===variantSelectedSquare&&move.to===square),chosen=moves.find(move=>move.promotion==="queen")||moves[0];if(chosen){playVariantMove(chosen.uci);return;}
+    }
+    const piece=fenBoard(game.fen)[square],color=game.turn==="w"?"w":"b";
+    if(piece&&piece.color===color){variantSelectedSquare=square;variantDropRole=null;variantLegalTargets=game.legalMoves().filter(move=>move.from===square&&!move.drop).map(move=>move.to);renderVariantBoard();return;}
+    variantSelectedSquare=null;variantLegalTargets=[];renderVariantBoard();
+  }
+  function selectVariantPocket(role,color){
+    if(!variantMatch||variantMatch.finished||variantMatch.thinking||color!==(variantHumanColor==="white"?"white":"black")||variantMatch.game.turn!==(variantHumanColor==="white"?"w":"b"))return;
+    const legal=variantMatch.game.legalMoves().filter(move=>move.drop&&move.role===role);if(!legal.length)return;variantDropRole=role;variantSelectedSquare=null;variantLegalTargets=legal.map(move=>move.to);renderVariantBoard();
+  }
+  function scheduleVariantBotMove(){
+    if(!variantMatch||variantMatch.finished)return;variantMatch.thinking=true;renderVariantsRoute();
+    variantBotTimer=setTimeout(async()=>{variantBotTimer=null;if(!variantMatch||variantMatch.finished)return;try{const tools=await loadVariantTools(),move=tools.chooseVariantBotMove(variantMatch.game,variantBotElo);variantMatch.thinking=false;if(move)playVariantMove(move);else{const result=variantMatch.game.result;finishVariantGame(result?.winner==="white"?"1-0":result?.winner==="black"?"0-1":"½-½",result?.winner?"checkmate":"draw");}}catch(error){variantMatch.thinking=false;pushToast(error?.message||"Bot error");renderVariantsRoute();}},320);
+  }
+  function undoVariantTurn(){
+    if(!variantMatch||!variantMatch.undo.length||variantMatch.finished||variantMatch.thinking)return;let restored=0;
+    do{const snapshot=variantMatch.undo.pop();if(!snapshot)break;variantMatch.game=snapshot.game;variantMatch.moves=snapshot.moves;variantMatch.positionKeys=snapshot.positionKeys;restored++;}while(variantMatch.undo.length&&variantMatch.game.turn!==(variantHumanColor==="white"?"w":"b")&&restored<2);
+    variantLastMove=variantMatch.moves.length?(()=>{const u=variantMatch.moves.at(-1).uci;return {from:u.includes("@")?null:u.slice(0,2),to:u.includes("@")?u.slice(2):u.slice(2,4)};})():null;renderVariantsRoute();
+  }
+  function tournamentMaterial(game,color){const values={p:1,n:3,b:3.2,r:5,q:9,k:0};let score=0;for(const row of game.board())for(const piece of row)if(piece)score+=(piece.color===color?1:-1)*(values[piece.type]||0);return score;}
+  function chooseTournamentMove(game,bot){
+    const legal=game.moves({verbose:true}),randomRate=Math.max(0,Math.min(.8,Number(bot.randomRate)||.03));if(!legal.length)return null;
+    if(Math.random()<randomRate)return legal[Math.floor(Math.random()*legal.length)];const side=game.turn(),scored=[];
+    for(const move of legal){game.move(move);let score=tournamentMaterial(game,side)*100;if(game.in_check())score+=25;if(game.in_checkmate())score+=10000;const file="abcdefgh".indexOf(move.to[0]),rank=Number(move.to[1])-1;score+=(3.5-Math.abs(3.5-file)+3.5-Math.abs(3.5-rank))*1.4;score+=(Math.random()-.5)*(1700-Number(bot.elo||1000))*.25;game.undo();scored.push({move,score});}
+    scored.sort((a,b)=>b.score-a.score);const breadth=Number(bot.elo)<700?4:Number(bot.elo)<1300?3:2;return scored[Math.floor(Math.random()*Math.min(breadth,scored.length))].move;
+  }
+  async function simulateTournamentGame(white,black){
+    if(!C)throw new Error("chess.js unavailable");const game=new C(),maxPlies=48;let plies=0;
+    while(!game.game_over()&&plies<maxPlies&&!tournamentStopRequested){const bot=game.turn()==="w"?white:black,move=chooseTournamentMove(game,bot);if(!move)break;game.move(move);plies++;if(plies%8===0)await new Promise(resolve=>setTimeout(resolve,0));}
+    let scoreWhite=.5,result="½-½";if(game.in_checkmate()){scoreWhite=game.turn()==="b"?1:0;result=scoreWhite?"1-0":"0-1";}
+    else if(!game.in_draw()&&!game.game_over()&&plies>=maxPlies){const advantage=tournamentMaterial(game,"w");scoreWhite=advantage>.5?1:advantage<-.5?0:.5;result=scoreWhite===1?"1-0":scoreWhite===0?"0-1":"½-½";}
+    return {white:white.id,black:black.id,result,scoreWhite,plies};
+  }
+  function tournamentStandings(state){return state.players.map(player=>Object.assign({},player,state.scores[player.id])).sort((a,b)=>b.points-a.points||b.wins-a.wins||(b.elo-a.elo));}
+  function renderTournamentTable(state){
+    if(!state)return "";const standings=tournamentStandings(state);
+    return '<div class="tournament-table-wrap"><table class="tournament-table"><thead><tr><th>#</th><th>Bot</th><th>Elo</th><th>'+(settings.language==="en"?"Pts":"Điểm")+'</th><th>W</th><th>D</th><th>L</th></tr></thead><tbody>'+standings.map((player,index)=>'<tr><td>'+(index+1)+'</td><td><strong>'+escapeHtml(player.name)+'</strong></td><td>'+player.elo+'</td><td><b>'+player.points.toFixed(1)+'</b></td><td>'+player.wins+'</td><td>'+player.draws+'</td><td>'+player.losses+'</td></tr>').join("")+'</tbody></table></div>';
+  }
+  function renderTournamentsRoute(){
+    const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en",running=tournamentState?.running,format=tournamentState?.format||tournamentFormatChoice;
+    const checks=BOT_CATALOG.map(bot=>'<label class="tournament-bot-option"><input type="checkbox" data-tournament-bot="'+bot.id+'"'+(selectedTournamentBotIds.includes(bot.id)?" checked":"")+(running?" disabled":"")+'><span>'+escapeHtml(en?bot.nameEn:bot.name)+'</span><small>'+bot.elo+'</small></label>').join("");
+    const history=tournamentHistory.slice(0,5).map(event=>'<article class="tournament-history-row"><div><strong>'+escapeHtml(event.title)+'</strong><small>'+new Date(event.date).toLocaleDateString(settings.language==="en"?"en-US":"vi-VN")+' · '+escapeHtml(event.formatLabel)+'</small></div><span>'+event.games+' '+(en?"games":"ván")+'</span></article>').join("");
+    host.innerHTML='<section class="card tournament-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"LOCAL BOT EVENT":"GIẢI BOT NỘI BỘ")+'</span><h3>'+(en?"Run a tournament on this device":"Tổ chức giải ngay trên máy")+'</h3><p>'+(en?"Round-robin and Arena pairings use local lightweight bot profiles; no account or network is needed.":"Thể thức vòng tròn và Arena dùng các Bot mô phỏng gọn nhẹ; không cần tài khoản hay mạng.")+'</p></div></section><section class="card tournament-setup"><div class="tournament-controls"><label class="field-label" for="tournamentFormat">'+(en?"Format":"Thể thức")+'</label><select id="tournamentFormat"'+(running?" disabled":"")+'><option value="round-robin"'+(format==="round-robin"?" selected":"")+'>'+(en?"Round robin · two legs":"Vòng tròn · lượt đi và về")+'</option><option value="arena"'+(format==="arena"?" selected":"")+'>'+(en?"Arena · five rounds":"Arena · 5 vòng")+'</option></select><span id="tournamentBotCount">'+selectedTournamentBotIds.length+' / 8 '+(en?"selected":"đã chọn")+'</span><button class="btn btn-primary" type="button" data-tournament-start'+(running?" disabled":"")+'>'+(en?"Start tournament":"Bắt đầu giải")+'</button>'+(running?'<button class="btn btn-soft" type="button" data-tournament-stop>'+(en?"Stop after this game":"Dừng sau ván này")+'</button>':"")+'</div><div class="tournament-bot-grid">'+checks+'</div>'+(running?'<div class="tournament-progress"><span>'+(en?"Game ":"Ván ")+tournamentState.completed+' / '+tournamentState.total+'</span><progress max="'+Math.max(1,tournamentState.total)+'" value="'+tournamentState.completed+'"></progress><strong>'+escapeHtml(tournamentState.status)+'</strong></div>':"")+'</section>'+(tournamentState?'<section class="card tournament-results"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"STANDINGS":"BẢNG XẾP HẠNG")+'</span><h3>'+escapeHtml(tournamentState.title)+'</h3></div><span class="tournament-finished">'+(tournamentState.running?(en?"In progress":"Đang diễn ra"):(en?"Completed":"Đã kết thúc"))+'</span></div>'+renderTournamentTable(tournamentState)+'<div class="tournament-match-list">'+tournamentState.matches.slice(-12).map(match=>{const w=tournamentState.players.find(p=>p.id===match.white),b=tournamentState.players.find(p=>p.id===match.black);return w&&b?'<div><span>'+escapeHtml(w.name)+' — '+escapeHtml(b.name)+'</span><strong>'+match.result+'</strong><small>'+match.plies+' ply</small></div>':"";}).join("")+'</div></section>':"")+'<section class="card tournament-history"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"RECENT EVENTS":"GIẢI GẦN ĐÂY")+'</span><h3>'+(en?"Saved tournaments":"Giải đã lưu")+'</h3></div></div>'+(history||'<p class="feature-note">'+(en?"Tournament results are saved locally.":"Kết quả giải được lưu trên thiết bị.")+'</p>')+'</section>';
+  }
+  async function startLocalTournament(){
+    if(tournamentState?.running)return;if(selectedTournamentBotIds.length<4||selectedTournamentBotIds.length>8){pushToast(settings.language==="en"?"Choose 4–8 bots.":"Hãy chọn từ 4 đến 8 Bot.");return;}
+    const format=$("#tournamentFormat")?.value||"round-robin",tools=await import("./variant-utils.mjs"),players=selectedTournamentBotIds.map(id=>BOT_CATALOG.find(bot=>bot.id===id)).filter(Boolean);
+    const schedule=tools.makeTournamentSchedule(players.map(player=>player.id),format),scores=Object.fromEntries(players.map(player=>[player.id,{points:0,wins:0,draws:0,losses:0,games:0}]));
+    tournamentStopRequested=false;tournamentState={id:"tournament-"+Date.now().toString(36),title:(format==="arena"?"Arena":"Vòng tròn")+" · "+new Date().toLocaleDateString(settings.language==="en"?"en-US":"vi-VN"),format,formatLabel:format==="arena"?"Arena":"Round robin",players,matches:[],scores,completed:0,total:schedule.length,running:true,status:"",date:new Date().toISOString()};renderTournamentsRoute();
+    for(const pair of schedule){if(tournamentStopRequested)break;if(pair.bye){scores[pair.bye].points+=1;tournamentState.completed++;tournamentState.status=(BOT_CATALOG.find(bot=>bot.id===pair.bye)?.name||pair.bye)+" được nghỉ vòng.";renderTournamentsRoute();continue;}
+      const white=players.find(bot=>bot.id===pair.white),black=players.find(bot=>bot.id===pair.black);if(!white||!black)continue;tournamentState.status=white.name+" vs "+black.name+" · vòng "+pair.round;renderTournamentsRoute();
+      const result=await simulateTournamentGame(white,black);tournamentState.matches.push(Object.assign({round:pair.round},result));scores[white.id].games++;scores[black.id].games++;
+      if(result.scoreWhite===1){scores[white.id].points++;scores[white.id].wins++;scores[black.id].losses++;}else if(result.scoreWhite===0){scores[black.id].points++;scores[black.id].wins++;scores[white.id].losses++;}else{scores[white.id].points+=.5;scores[black.id].points+=.5;scores[white.id].draws++;scores[black.id].draws++;}
+      tournamentState.completed++;renderTournamentsRoute();
+    }
+    tournamentState.running=false;tournamentState.stopped=tournamentStopRequested;tournamentState.status=tournamentStopRequested?"Stopped by user":"Completed";
+    tournamentHistory.unshift({id:tournamentState.id,date:tournamentState.date,title:tournamentState.title,formatLabel:tournamentState.formatLabel,games:tournamentState.matches.length,standings:tournamentStandings(tournamentState)});tournamentHistory=tournamentHistory.slice(0,50);store.set("h2c-tournaments",JSON.stringify(tournamentHistory));renderTournamentsRoute();
+  }
+  function stopLocalTournament(){if(tournamentState?.running)tournamentStopRequested=true;}
+
+  function renderActiveFeatureRoute() {
     if(activeSideRoute==="bot")renderBotRoute();
     else if(activeSideRoute==="coach")renderCoachRoute();
     else if(activeSideRoute==="history")renderHistoryRoute();
@@ -599,6 +745,8 @@ function renderActiveFeatureRoute() {
     else if(activeSideRoute==="puzzle-rush")renderPuzzleRushRoute();
     else if(activeSideRoute==="puzzle-custom")renderPuzzleCustomRoute();
     else if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();
+    else if(activeSideRoute==="variants")renderVariantsRoute();
+    else if(activeSideRoute==="tournaments")renderTournamentsRoute();
   }
   function parseClockChoice(choice) {
     if(!choice||choice==="none")return {base:null,increment:0};
@@ -761,6 +909,18 @@ function renderActiveFeatureRoute() {
     downloadTextFile("how2chess-games.pgn",savedGames.slice().reverse().map(game=>game.pgn||createGamePgn(game)).join("\n"),"application/x-chess-pgn;charset=utf-8");
   }
   function handleFeatureClick(event) {
+    const variantStart=event.target.closest("[data-variant-start]");
+    if(variantStart){startVariantGame(variantStart.dataset.variantStart);return;}
+    const variantSquare=event.target.closest("[data-variant-square]");
+    if(variantSquare){handleVariantSquare(variantSquare.dataset.variantSquare);return;}
+    const variantDrop=event.target.closest("[data-variant-drop]");
+    if(variantDrop){selectVariantPocket(variantDrop.dataset.variantDrop,variantDrop.dataset.pocketColor);return;}
+    if(event.target.closest("[data-variant-undo]")){undoVariantTurn();return;}
+    if(event.target.closest("[data-variant-flip]")){variantOrientation=variantOrientation==="w"?"b":"w";renderVariantsRoute();return;}
+    if(event.target.closest("[data-variant-new]")){const id=variantMatch?.variantId;if(id)startVariantGame(id);return;}
+    if(event.target.closest("[data-variant-resign]")){if(variantMatch&&!variantMatch.finished)finishVariantGame(variantHumanColor==="white"?"0-1":"1-0","resignation");return;}
+    if(event.target.closest("[data-tournament-start]")){startLocalTournament().catch(error=>{pushToast(error?.message||"Tournament error");if(tournamentState)tournamentState.running=false;renderTournamentsRoute();});return;}
+    if(event.target.closest("[data-tournament-stop]")){stopLocalTournament();return;}
     const puzzleSquare=event.target.closest("[data-puzzle-square]");
     if(puzzleSquare){handlePuzzleSquare(puzzleSquare.dataset.puzzleSquare);return;}
     if(event.target.closest("[data-puzzle-import]")){$("#puzzleCsvFile")?.click();return;}
@@ -811,6 +971,14 @@ function renderActiveFeatureRoute() {
   }
   function handleFeatureChange(event) {
     const target=event.target;
+    if(target.id==="variantColorChoice"){variantHumanColor=target.value;return;}
+    if(target.id==="tournamentFormat"){tournamentFormatChoice=target.value;renderTournamentsRoute();return;}
+    if(target.matches?.("[data-tournament-bot]")){
+      const id=target.dataset.tournamentBot,next=new Set(selectedTournamentBotIds);
+      if(target.checked&&next.size>=8){target.checked=false;pushToast(settings.language==="en"?"A tournament can include at most eight bots.":"Một giải có tối đa tám Bot.");return;}
+      if(!target.checked&&next.size<=4){target.checked=true;pushToast(settings.language==="en"?"A tournament needs at least four bots.":"Một giải cần ít nhất bốn Bot.");return;}
+      if(target.checked)next.add(id);else next.delete(id);selectedTournamentBotIds=[...next];store.set("h2c-tournament-selection",JSON.stringify(selectedTournamentBotIds));renderTournamentsRoute();return;
+    }
     if(target.id==="puzzleCsvFile"){importLichessPuzzleFile(target.files?.[0]);return;}
     if(target.id==="puzzleThemeFilter"){puzzleLibraryTheme=target.value;renderPuzzleLibraryRoute();return;}
     if(target.id==="puzzleDifficultyFilter"){puzzleLibraryDifficulty=target.value;renderPuzzleLibraryRoute();return;}
@@ -996,7 +1164,7 @@ function renderActiveFeatureRoute() {
     $("#screenTitle").textContent=en?item.en:item.vi;$("#routeGroup").textContent=en?group.en:group.vi;
     $("#routeTitle").textContent=en?item.en:item.vi;$("#routeDescription").textContent=en?item.descEn:item.descVi;
     $("#routeIcon").innerHTML=routeIconSVG(item.id);$("#routeStage").textContent=en?"STEP "+item.stage:"BƯỚC "+item.stage;
-    const ready=["bot","coach","history","stats","puzzles","daily","puzzle-rush","puzzle-custom","puzzle-duel"].includes(routeId);
+    const ready=["bot","coach","history","stats","puzzles","daily","puzzle-rush","puzzle-custom","puzzle-duel","variants","tournaments"].includes(routeId);
     $("#routePlaceholder").hidden=ready;$("#featureRouteBody").hidden=!ready;
     if(ready){
       $("#routeStatus").textContent=en?"Available now":"Đã sẵn sàng";
@@ -1560,7 +1728,7 @@ function renderActiveFeatureRoute() {
     $("#featureRouteBody").addEventListener("dragover",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.types?.includes("Files")){event.preventDefault();$("#featureRouteBody").classList.add("drag-over");}});
     $("#featureRouteBody").addEventListener("dragleave",event=>{if(!$("#featureRouteBody").contains(event.relatedTarget))$("#featureRouteBody").classList.remove("drag-over");});
     $("#featureRouteBody").addEventListener("drop",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.files?.length){event.preventDefault();$("#featureRouteBody").classList.remove("drag-over");importPgnFile(event.dataTransfer.files[0]);}});
-    $("#featureRouteBody").addEventListener("input",event=>{if(event.target.id==="duelBotElo"){const value=$("#duelBotEloValue");if(value)value.textContent=event.target.value+" Elo";return;}if(event.target.id==="historySearch"){const value=event.target.value,start=event.target.selectionStart;renderHistoryRoute(value);const input=$("#historySearch");input?.focus();input?.setSelectionRange(start,start);}});
+    $("#featureRouteBody").addEventListener("input",event=>{if(event.target.id==="variantBotElo"){variantBotElo=Number(event.target.value)||1000;const value=$("#variantBotEloValue");if(value)value.textContent=variantBotElo+" Elo";return;}if(event.target.id==="duelBotElo"){const value=$("#duelBotEloValue");if(value)value.textContent=event.target.value+" Elo";return;}if(event.target.id==="historySearch"){const value=event.target.value,start=event.target.selectionStart;renderHistoryRoute(value);const input=$("#historySearch");input?.focus();input?.setSelectionRange(start,start);}});
     $("#drawerNavigation").addEventListener("click",event=>{
       const link=event.target.closest("[data-route]");if(!link)return;
       event.preventDefault();navigateSideRoute(link.dataset.route);

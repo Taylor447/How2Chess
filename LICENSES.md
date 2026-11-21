@@ -6,6 +6,8 @@
 - **chess.js 0.10.3**: loaded from cdnjs at runtime. Preserve the upstream license and notices when vendoring or redistributing that library.
   - https://github.com/jhlywa/chess.js
   - https://cdnjs.com/libraries/chess.js
+- **chessops 0.15.1**: loaded as a pinned browser module from esm.sh for variant move validation. chessops is licensed under GNU GPL version 3 or later. If you redistribute an application containing this module, provide the source and notices required by GPL-3.0-or-later.
+  - https://github.com/niklasf/chessops
 - **ONNX Runtime Web 1.31.1**: bundled locally from npm for browser inference. The upstream ONNX Runtime project is MIT-licensed; the setup script also copies the package license and third-party notices into `vendor/onnxruntime-web/` when supplied by the package. Preserve these notices when redistributing.
   - https://github.com/microsoft/onnxruntime/blob/main/LICENSE
 - **How2Chess interface**: created for this project. The original chess piece SVG set in icons/pieces.svg is released under CC0 1.0; see icons/PIECES-LICENSE.md.
