@@ -11,5 +11,8 @@
 - **ONNX Runtime Web 1.31.1**: bundled locally from npm for browser inference. The upstream ONNX Runtime project is MIT-licensed; the setup script also copies the package license and third-party notices into `vendor/onnxruntime-web/` when supplied by the package. Preserve these notices when redistributing.
   - https://github.com/microsoft/onnxruntime/blob/main/LICENSE
 - **How2Chess interface**: created for this project. The original chess piece SVG set in icons/pieces.svg is released under CC0 1.0; see icons/PIECES-LICENSE.md.
+- **Lichess public API**: How2Chess reads public tournament, broadcast, and live-streamer metadata from documented Lichess endpoints. No Lichess marks or player imagery are bundled; any event image from API responses is linked at runtime and remains subject to its source terms.
+  - https://github.com/lichess-org/api/blob/master/doc/specs/lichess-api.yaml
+  - https://lichess.org/api
 
 The source project does not include a local copy of the Stockfish binary. The engine is loaded from its pinned CDN files at runtime and cached by the service worker where the browser permits it.
