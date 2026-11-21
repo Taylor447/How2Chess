@@ -56,6 +56,6 @@ test("Coach move hints and labels are styled for the shared responsive interface
 });
 
 test("PWA cache version changes so installed clients fetch the Coach update", () => {
-  assert.match(sw, /const CACHE_NAME = "how2chess-v6"/);
+  assert.match(sw, /const CACHE_NAME = "how2chess-v7"/);
 });
 
