@@ -112,6 +112,7 @@
                 </div>
                 <div class="mini-status" id="turnStatus"><span class="turn-dot"></span><span>Trắng đi</span></div>
               </div>
+              <div class="game-clock-bar card" id="gameClockBar" hidden aria-live="polite"><div id="clockWhiteWrap"><span id="clockWhiteName">Trắng</span><strong id="clockWhite">10:00</strong></div><span class="game-clock-caption" id="gameClockCaption"></span><div id="clockBlackWrap"><span id="clockBlackName">Đen</span><strong id="clockBlack">10:00</strong></div></div>
               <div class="piece-tray black-tray" id="blackTray" aria-label="Khay quân đen"></div>
               <div class="board-frame">
                 <div class="board-coords ranks" id="rankLabels" aria-hidden="true"></div>
@@ -265,10 +266,11 @@
           <div><span class="eyebrow eyebrow-soft" id="routeGroup"></span><h2 id="routeTitle" tabindex="-1"></h2><p id="routeDescription"></p></div>
           <button class="btn btn-soft route-home" id="routeHome"><span aria-hidden="true">←</span><span id="routeHomeLabel">Về H2C</span></button>
         </div>
-        <article class="card route-placeholder">
+        <article class="card route-placeholder" id="routePlaceholder">
           <div class="route-placeholder-icon" id="routeIcon" aria-hidden="true"></div>
           <div><span class="route-stage" id="routeStage"></span><h3 id="routeStatus"></h3><p id="routeStatusDescription"></p></div>
         </article>
+        <div id="featureRouteBody" class="feature-route-body" hidden></div>
       </section>
     </section>
   </main>
