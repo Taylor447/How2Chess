@@ -78,6 +78,12 @@ capacitor.config.json points Capacitor at the generated dist/ folder. The Androi
 
 Stockfish searches in a dedicated worker and the interface remains responsive. This project uses the compact, single-threaded lite WASM engine for compatibility with static hosts and phones. Its UCI rating controls are approximate; the build clamps UCI_Elo to Stockfish's supported range and uses Skill Level for lower targets. A displayed target Elo is not an exact promise of playing strength. “Đấu với máy” plays against Stockfish at the configured level; it does not imitate a named grandmaster's personal style.
 
+## Variants and local tournaments
+
+The Variants screen uses chessops 0.15.1 for legal moves and outcomes in Chess960, King of the Hill, Three-check, Crazyhouse, Horde, Atomic, and Racing Kings. The browser downloads the pinned module from esm.sh the first time; the service worker caches it for later offline use. Variant games use a lightweight material-and-center H2C bot, not Stockfish. Crazyhouse supports pocket drops; Chess960 starts from a randomized legal back rank.
+
+The Tournaments screen runs local round-robin (two legs) or five-round Arena simulations with 4–8 of the existing bot profiles. It yields between groups of moves so the page stays responsive. These are quick, approximate bot simulations, not official ratings or engine-strength measurements. Completed variant games and tournament standings stay in local browser storage.
+
 ## Licenses
 
 See LICENSES.md before redistributing a build. Stockfish.js contains GPLv3 engine code; comply with GPLv3 when you distribute a bundled engine. chess.js 0.10.3 is provided by cdnjs and is distributed under its upstream BSD-style license. The original How2Chess UI, board illustrations, and inline piece artwork are project code.
