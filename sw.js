@@ -1,10 +1,12 @@
 "use strict";
-const CACHE_NAME = "how2chess-v4";
+const CACHE_NAME = "how2chess-v5";
 const LOCAL_ASSETS = [
   "./",
   "./index.html",
   "./app.css",
   "./app.js",
+  "./variant-runtime.mjs",
+  "./variant-utils.mjs",
   "./engine-worker.js",
   "./onnx-engine-worker.js",
   "./manifest.webmanifest",
@@ -17,6 +19,7 @@ const LOCAL_ASSETS = [
 ];
 const REMOTE_ASSETS = [
   "https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js",
+  "https://esm.sh/chessops@0.15.1?bundle",
   "https://cdn.jsdelivr.net/npm/stockfish@19.0.0/bin/stockfish-19-lite-single.js",
   "https://cdn.jsdelivr.net/npm/stockfish@19.0.0/bin/stockfish-19-lite-single.wasm",
   "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort-wasm-simd-threaded.mjs",
@@ -61,3 +64,4 @@ self.addEventListener("fetch", event => {
     }
   })());
 });
+
