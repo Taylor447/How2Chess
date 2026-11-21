@@ -688,7 +688,7 @@
     let loss=null;
     if(pending.before&&afterEval) {
       const before=evaluationCp(pending.before),after=evaluationCp(afterEval);
-      loss=Math.max(0,Math.round(pending.color==="w"?after-before:before-after));
+      loss=Math.max(0,Math.round(pending.color==="w"?before-after:after-before));
     }
     const best=!!(pending.bestUci&&pending.bestUci===pending.uci),label=coachLabelFor(loss,best);
     const en=settings.language==="en";

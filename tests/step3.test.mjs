@@ -16,7 +16,7 @@ test("Coach can be toggled on the board and from its own route", () => {
 });
 
 test("Coach scores moves from the correct side-to-move perspective", () => {
-  assert.match(app, /loss=Math\.max\(0,Math\.round\(pending\.color==="w"\?after-before:before-after\)\)/);
+  assert.match(app, /loss=Math\.max\(0,Math\.round\(pending\.color==="w"\?before-after:after-before\)\)/);
   assert.match(app, /sourceCoach=coachSnapshot\?\.fen===fenBefore\?coachSnapshot:\(lastEvaluation\?\.fen===fenBefore\?lastEvaluation:null\)/);
   assert.match(app, /Stockfish previously preferred/);
   assert.match(app, /Trước đó Stockfish ưu tiên/);
