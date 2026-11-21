@@ -357,13 +357,13 @@
   }
   function openSideDrawer() {
     const drawer=$("#sideDrawer");if(!drawer)return;
-    sideDrawerOpen=true;drawer.classList.add("open");drawer.setAttribute("aria-hidden","false");
+    sideDrawerOpen=true;drawer.inert=false;drawer.classList.add("open");drawer.setAttribute("aria-hidden","false");
     $("#drawerScrim").hidden=false;$("#drawerToggle").setAttribute("aria-expanded","true");
     requestAnimationFrame(()=>$("#drawerClose").focus());
   }
   function closeSideDrawer(restoreFocus=false) {
     const drawer=$("#sideDrawer");if(!drawer)return;
-    sideDrawerOpen=false;drawer.classList.remove("open");drawer.setAttribute("aria-hidden","true");
+    sideDrawerOpen=false;drawer.inert=true;drawer.classList.remove("open");drawer.setAttribute("aria-hidden","true");
     $("#drawerScrim").hidden=true;$("#drawerToggle").setAttribute("aria-expanded","false");
     if(restoreFocus)$("#drawerToggle").focus();
   }
@@ -390,7 +390,7 @@
     $("#floatingAdd").hidden=true;$("#landing").hidden=true;$("#landingReturn").hidden=true;
     closeSideDrawer(false);
     translateDocument();
-    if(scroll)$("#app").scrollIntoView({behavior:settings.motion?"smooth":"auto",block:"start"});
+    if(scroll){$("#app").scrollIntoView({behavior:settings.motion?"smooth":"auto",block:"start"});$("#routeTitle").focus({preventScroll:true});}
   }
   function routeFromHash() {
     const match=location.hash.match(/^#\/([a-z0-9-]+)\/?$/i);
@@ -399,7 +399,7 @@
   }
   function navigateSideRoute(id) {
     const hash="#/"+id;
-    closeSideDrawer(false);
+    closeSideDrawer(true);
     if(location.hash===hash)renderSideRoute(id,false);else location.hash=hash;
   }
 
@@ -905,7 +905,7 @@
       if(sideTouchStartX===null||!event.changedTouches.length)return;
       const delta=event.changedTouches[0].clientX-sideTouchStartX;
       if(!sideDrawerOpen&&sideTouchStartX<=22&&delta>=72)openSideDrawer();
-      else if(sideDrawerOpen&&delta<=-72)closeSideDrawer(false);
+      else if(sideDrawerOpen&&delta<=-72)closeSideDrawer(true);
       sideTouchStartX=null;
     },{passive:true});
 
