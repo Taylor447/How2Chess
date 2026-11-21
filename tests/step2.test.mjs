@@ -36,7 +36,7 @@ test("timed games, takebacks, and end-of-game results are wired", () => {
 });
 
 test("history is stored in IndexedDB with a localStorage fallback and can export PGN", () => {
-  assert.match(app, /indexedDB\.open\("How2ChessLocal",1\)/);
+  assert.match(app, /indexedDB\.open\("How2ChessLocal",2\)/);
   assert.match(app, /store\.set\("h2c-game-history"/);
   assert.match(app, /function exportSavedPgn\(\)/);
   assert.match(app, /function importPgnFile\(/);
@@ -58,3 +58,4 @@ test("bot cards and statistics remain responsive and use the shared theme", () =
   assert.match(css, /@media\(max-width:720px\)/);
   assert.match(css, /\.side-drawer\s*\{[^}]*linear-gradient/s);
 });
+

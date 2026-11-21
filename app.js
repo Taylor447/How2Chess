@@ -60,6 +60,26 @@
   let coachEnabled = store.get("h2c-coach-enabled","0")==="1";
   let coachSnapshot = null, coachPendingMove = null, coachMoveLog = [], coachHintText = "", pendingHintLevel = 0;
 
+  const STARTER_PUZZLES = [
+    {id:"h2c-mate-g7",name:"Chiếu hết bằng Hậu",fen:"7k/8/5KQ1/8/8/8/8/8 w - - 0 1",solution:["g6g7"],rating:900,themes:["mateIn1"],source:"How2Chess"},
+    {id:"h2c-rook-wins-queen",name:"Xe bắt Hậu",fen:"3q4/k7/8/8/8/8/8/3RK3 w - - 0 1",solution:["d1d8"],rating:700,themes:["hangingPiece"],source:"How2Chess"},
+    {id:"h2c-promote",name:"Phong cấp Tốt",fen:"7k/P7/6K1/8/8/8/8/8 w - - 0 1",solution:["a7a8q"],rating:650,themes:["promotion"],source:"How2Chess"},
+    {id:"h2c-mate-backrank",name:"Chiếu hết hàng cuối",fen:"6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1",solution:["d1d8"],rating:1100,themes:["mateIn1"],source:"How2Chess"}
+  ];
+  let puzzleCustoms=parseJSON(store.get("h2c-custom-puzzles","[]"),[]);
+  if(!Array.isArray(puzzleCustoms))puzzleCustoms=[];
+  let puzzleSession=null,puzzleSelected=null,puzzleLegalTargets=[],puzzleOrientation="w",puzzleLastMove=null,puzzleHintSquares=[],puzzleHintArrow=null;
+  let puzzleLibraryTheme="all",puzzleLibraryDifficulty="all",puzzleLibraryItems=[],puzzleLibraryRequest=0;
+  let puzzleRating=Math.max(100,Number(store.get("h2c-puzzle-rating","1200"))||1200);
+  let puzzleRatingDeviation=Math.max(60,Number(store.get("h2c-puzzle-rd","350"))||350);
+  let puzzleResults=parseJSON(store.get("h2c-puzzle-results","[]"),[]);
+  if(!Array.isArray(puzzleResults))puzzleResults=[];
+  let dailyProgress=parseJSON(store.get("h2c-daily-progress","{}"),{});
+  if(!dailyProgress||typeof dailyProgress!=="object"||Array.isArray(dailyProgress))dailyProgress={};
+  let puzzleDailyPromise=null,puzzleDailyStatus="",puzzleDailyAttemptAt=Number(store.get("h2c-daily-attempt","0"))||0;
+  let puzzleRush=null,puzzleDuel=null,puzzleTimer=null,puzzleOpponentTimer=null,puzzleImportedCount=Number(store.get("h2c-puzzle-import-count","0"))||0;
+
+
   const EN_TEXT = {
     "Đọc thế cờ.":"Read the position.","Tìm nước hay.":"Find the better move.",
     "Dựng vị trí của bạn, để Stockfish phân tích và lưu mọi ý tưởng vào một thư viện riêng — tất cả ngay trên thiết bị.":"Set up a position, let Stockfish analyze it, and save your ideas to a personal library — right on your device.",
@@ -121,8 +141,8 @@
   function openHistoryDatabase() {
     return new Promise((resolve,reject)=>{
       if(!window.indexedDB){reject(new Error("IndexedDB unavailable"));return;}
-      const request=indexedDB.open("How2ChessLocal",1);
-      request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains("local"))db.createObjectStore("local",{keyPath:"key"});};
+      const request=indexedDB.open("How2ChessLocal",2);
+      request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains("local"))db.createObjectStore("local",{keyPath:"key"});let puzzles;if(!db.objectStoreNames.contains("puzzles"))puzzles=db.createObjectStore("puzzles",{keyPath:"id"});else puzzles=request.transaction.objectStore("puzzles");if(!puzzles.indexNames.contains("themes"))puzzles.createIndex("themes","themes",{multiEntry:true});};
       request.onsuccess=()=>resolve(request.result);
       request.onerror=()=>reject(request.error||new Error("IndexedDB open failed"));
     });
@@ -264,28 +284,10 @@
     $("#calculateBtn").title=errors[0]||"";
   }
   function renderBoard() {
-    const grid=$("#boardGrid"),rankLabels=$("#rankLabels"),fileLabels=$("#fileLabels");
-    if(!grid)return;
-    const squares=[],ranks=[],files=[];
-    for(let vr=0;vr<8;vr++) {
-      const rank=orientation==="w"?vr:7-vr;
-      ranks.push("<span>"+(8-rank)+"</span>");
-      for(let vf=0;vf<8;vf++) {
-        const file=orientation==="w"?vf:7-vf;
-        const sq=squareName(file,rank),p=board[sq],light=(file+rank)%2===0;
-        const isSelected=selection===sq,isLegal=legalTargets.includes(sq),isCapture=isLegal&&!!board[sq];
-        const isLast=lastMove&&(lastMove.from===sq||lastMove.to===sq);
-        const check=!!p&&p.type==="k"&&isKingChecked(p.color);
-        let cls="square "+(light?"light":"dark")+(p?" "+(p.color==="w"?"white-piece":"black-piece"):"")+(isSelected?" selected-square":"")+(isLegal?(isCapture?" legal-capture":" legal-target"):"")+(isLast?" last-move":"")+(check?" check-square":"");
-        let coords="";
-        if(file===0)coords+='<span class="coord rank">'+(8-rank)+'</span>';
-        if(rank===7)coords+='<span class="coord file">'+FILES[file]+'</span>';
-        squares.push('<button type="button" class="'+cls+'" role="gridcell" data-square="'+sq+'" aria-label="'+sq+(p?", "+(p.color==="w"?"trắng ":"đen ")+GLYPH[p.type]:"")+'" draggable="'+(mode==="builder"&&!!p)+'">'+(pieceSymbol(p)||"")+coords+'</button>');
-      }
-    }
-    for(let vf=0;vf<8;vf++){const file=orientation==="w"?vf:7-vf;files.push("<span>"+FILES[file]+"</span>");}
-    grid.innerHTML=squares.join("");rankLabels.innerHTML=ranks.join("");fileLabels.innerHTML=files.join("");
-    drawArrows();
+    const grid=$("#boardGrid"),rankLabels=$("#rankLabels"),fileLabels=$("#fileLabels");if(!grid)return;
+    const checkedColor=isKingChecked("w")?"w":isKingChecked("b")?"b":null;
+    const parts=puzzleBoardParts(board,orientation,{selected:selection,legalTargets:legalTargets,lastMove:lastMove,checkedColor:checkedColor,draggable:mode==="builder"},"data-square");
+    grid.innerHTML=parts.squares;rankLabels.innerHTML=parts.ranks;fileLabels.innerHTML=parts.files;drawArrows();
   }
   function isKingChecked(color) {
     if(!C)return false;
@@ -432,11 +434,171 @@
     const botBars=topBots.length?topBots.map(([name,count])=>'<div class="stat-bot-row"><span>'+escapeHtml(name)+'</span><div><i style="width:'+Math.max(8,Math.round(count/Math.max(1,savedGames.length)*100))+'%"></i></div><b>'+count+'</b></div>').join(""):'<p class="feature-note">'+(en?"Play a few games to see your opponent breakdown.":"Chơi vài ván để xem thống kê theo bot.")+'</p>';
     host.innerHTML='<div class="stats-grid">'+stats.map((value,index)=>'<article class="card stat-card"><span>'+label[index]+'</span><strong>'+value+'</strong><small>'+(index===0?(en?"vs local bots":"với bot cục bộ"):(savedGames.length?Math.round(value/Math.max(1,savedGames.length)*100)+"%":"—"))+'</small></article>').join("")+'<article class="card stat-card"><span>'+(en?"Estimated rating":"Rating ước tính")+'</span><strong>'+Math.round(playerRating)+'</strong><small>'+(en?"Local estimate":"Ước tính cục bộ")+'</small></article><article class="card stat-card"><span>'+(en?"Average accuracy":"Độ chính xác TB")+'</span><strong>'+avg+'</strong><small>'+(avgAccuracy.length?(en?"Coach-reviewed games":"Các ván đã được Coach phân tích"):(en?"Available after Coach analysis":"Có sau khi Coach phân tích"))+'</small></article><article class="card stat-card"><span>'+(en?"Practice streak":"Chuỗi luyện tập")+'</span><strong>'+streak+' '+(en?"days":"ngày")+'</strong><small>'+(en?"Consecutive days with a finished game":"Ngày liên tiếp có ván hoàn thành")+'</small></article></div><div class="stats-detail-grid"><article class="card stats-panel"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"RATING":"RATING")+'</span><h3>'+(en?"Estimated trend":"Biến động ước tính")+'</h3></div><strong>'+Math.round(playerRating)+'</strong></div>'+renderRatingChart(savedGames)+'</article><article class="card stats-panel"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"BY COLOR":"THEO MÀU")+'</span><h3>'+(en?"Games played":"Số ván đã chơi")+'</h3></div></div><div class="color-stats"><span>♙ '+(en?"White wins / games":"Thắng / ván Trắng")+' <b>'+whiteWins+" / "+white.length+'</b></span><span>♟ '+(en?"Black wins / games":"Thắng / ván Đen")+' <b>'+blackWins+" / "+black.length+'</b></span></div><p class="feature-note">'+(en?"Puzzle rating and opening statistics will appear when those features are added.":"Rating câu đố và khai cuộc hay chơi sẽ có khi các phần đó được bổ sung.")+'</p></article></div><article class="card stats-panel stats-bots"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"OPPONENTS":"ĐỐI THỦ")+'</span><h3>'+(en?"Games by bot":"Ván theo bot")+'</h3></div></div>'+botBars+'</article>';
   }
-  function renderActiveFeatureRoute() {
+  
+  function localDateKey(date=new Date()){return date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+"-"+String(date.getDate()).padStart(2,"0");}
+  function puzzleThemeLabel(theme,en){const labels={mateIn1:en?"Mate in 1":"Chiếu hết 1 nước",mateIn2:en?"Mate in 2":"Chiếu hết 2 nước",fork:en?"Fork":"Đòn đôi",pin:en?"Pin":"Ghim",hangingPiece:en?"Hanging piece":"Quân treo",sacrifice:en?"Sacrifice":"Thí quân",promotion:en?"Promotion":"Phong cấp",endgame:en?"Endgame":"Tàn cuộc",custom:en?"Custom":"Tự tạo"};return labels[theme]||String(theme||"").replace(/([A-Z])/g," $1");}
+  function puzzleSolutionIsLegal(record){if(!record||!record.fen||!Array.isArray(record.solution)||!record.solution.length||!C)return false;try{const game=new C(record.fen);for(const uci of record.solution){if(!/^[a-h][1-8][a-h][1-8][qrbn]?$/i.test(uci))return false;const move=game.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]||"q"});if(!move)return false;}return true;}catch(_){return false;}}
+  function puzzleToSan(record){try{return convertPvToSan(record.solution,record.fen).text;}catch(_){return record.solution.join(" ");}}
+  function getPuzzleLocalList(){const rows=STARTER_PUZZLES.concat(puzzleCustoms),ids=new Set();return rows.filter(row=>row&&row.id&&!ids.has(row.id)&&(ids.add(row.id),true));}
+  function savePuzzleBatch(records){return openHistoryDatabase().then(db=>new Promise((resolve,reject)=>{const tx=db.transaction("puzzles","readwrite"),objects=tx.objectStore("puzzles");records.forEach(record=>objects.put(record));tx.oncomplete=()=>{db.close();resolve(true);};tx.onerror=()=>{db.close();reject(tx.error||new Error("Puzzle storage failed"));};}));}
+  function queryPuzzleDatabase(theme,difficulty,limit){return openHistoryDatabase().then(db=>new Promise((resolve,reject)=>{
+    const tx=db.transaction("puzzles","readonly"),objects=tx.objectStore("puzzles"),source=theme&&theme!=="all"&&objects.indexNames.contains("themes")?objects.index("themes").openCursor(IDBKeyRange.only(theme)):objects.openCursor(),found=[];
+    source.onsuccess=()=>{const cursor=source.result;if(!cursor){db.close();resolve(found);return;}const puzzle=cursor.value,rating=Number(puzzle.rating)||1200,ok=difficulty==="easy"?rating<1200:difficulty==="medium"?rating>=1200&&rating<1800:difficulty==="hard"?rating>=1800:true;if(ok&&(!theme||theme==="all"||(puzzle.themes||[]).includes(theme)))found.push(puzzle);if(found.length>=limit){db.close();resolve(found);return;}cursor.continue();};
+    source.onerror=()=>{db.close();reject(source.error||new Error("Puzzle query failed"));};tx.onerror=()=>{db.close();reject(tx.error||new Error("Puzzle query failed"));};
+  }));}
+  function getPuzzleById(id){const local=getPuzzleLocalList().find(puzzle=>puzzle.id===id);if(local)return Promise.resolve(local);return openHistoryDatabase().then(db=>new Promise((resolve,reject)=>{const request=db.transaction("puzzles","readonly").objectStore("puzzles").get(id);request.onsuccess=()=>{db.close();resolve(request.result||null);};request.onerror=()=>{db.close();reject(request.error||new Error("Puzzle not found"));};}));}
+  function startPuzzleSession(record,mode){
+    if(!C){pushToast(settings.language==="en"?"Chess rules could not be loaded. Connect once, then reload.":"Không tải được luật cờ. Hãy kết nối mạng một lần rồi tải lại.");return false;}
+    const clean=Object.assign({},record,{solution:Array.isArray(record.solution)?record.solution.slice():[],themes:Array.isArray(record.themes)?record.themes.slice():[]});
+    if(!puzzleSolutionIsLegal(clean)){pushToast(settings.language==="en"?"This puzzle has an invalid position or solution.":"Thế cờ hoặc lời giải này không hợp lệ.");return false;}
+    try{const game=new C(clean.fen);puzzleSession={record:clean,mode:mode||"library",game,startFen:clean.fen,index:0,playerColor:game.turn(),errors:0,penalized:false,solved:false,revealed:false,hintText:"",startedAt:Date.now()};puzzleSelected=null;puzzleLegalTargets=[];puzzleOrientation=game.turn();puzzleLastMove=null;puzzleHintSquares=[];puzzleHintArrow=null;return true;}catch(_){return false;}
+  }
+  function puzzleActiveMove(){return puzzleSession?.record.solution[puzzleSession.index]||null;}
+  function puzzleBoardParts(position,view,options,dataAttribute){
+    const squares=[],ranks=[],files=[],selected=options.selected||null,legal=options.legalTargets||[],last=options.lastMove||null,hints=options.hintSquares||[];
+    for(let vr=0;vr<8;vr++){const rank=view==="w"?vr:7-vr;ranks.push("<span>"+(8-rank)+"</span>");for(let vf=0;vf<8;vf++){const file=view==="w"?vf:7-vf,sq=squareName(file,rank),piece=position[sq],light=(file+rank)%2===0,isSelected=selected===sq,isLegal=legal.includes(sq),isCapture=isLegal&&!!position[sq],isLast=last&&(last.from===sq||last.to===sq),check=!!piece&&piece.type==="k"&&piece.color===options.checkedColor;const cls="square "+(light?"light":"dark")+(piece?" "+(piece.color==="w"?"white-piece":"black-piece"):"")+(isSelected?" selected-square":"")+(isLegal?(isCapture?" legal-capture":" legal-target"):"")+(isLast?" last-move":"")+(check?" check-square":"")+(hints.includes(sq)?" puzzle-hint-square":"");let coords="";if(file===0)coords+='<span class="coord rank">'+(8-rank)+'</span>';if(rank===7)coords+='<span class="coord file">'+FILES[file]+"</span>";squares.push('<button type="button" class="'+cls+'" role="gridcell" '+dataAttribute+'="'+sq+'" aria-label="'+sq+(piece?", "+(piece.color==="w"?"trắng ":"đen ")+GLYPH[piece.type]:"")+'" draggable="'+(options.draggable&&!!piece)+'">'+(pieceSymbol(piece)||"")+coords+"</button>");}}
+    for(let vf=0;vf<8;vf++){const file=view==="w"?vf:7-vf;files.push("<span>"+FILES[file]+"</span>");}return {squares:squares.join(""),ranks:ranks.join(""),files:files.join("")};
+  }
+  function renderPuzzleBoard(){const mount=$("#puzzleBoardMount");if(!mount||!puzzleSession)return;const game=puzzleSession.game,parts=puzzleBoardParts(fenBoard(game.fen()),puzzleOrientation,{selected:puzzleSelected,legalTargets:puzzleLegalTargets,lastMove:puzzleLastMove,checkedColor:game.in_check()?game.turn():null,hintSquares:puzzleHintSquares},"data-puzzle-square");mount.innerHTML='<div class="board-frame puzzle-board-frame"><div class="board-coords ranks" aria-hidden="true">'+parts.ranks+'</div><div class="board-grid" role="grid" aria-label="'+(settings.language==="en"?"Puzzle chessboard":"Bàn cờ câu đố")+'">'+parts.squares+'</div><div class="board-coords files" aria-hidden="true">'+parts.files+'</div><svg class="arrow-layer" id="puzzleArrowLayer" viewBox="0 0 800 800" aria-hidden="true"></svg></div>';drawPuzzleArrow();}
+  function drawPuzzleArrow(){const svg=$("#puzzleArrowLayer");if(!svg)return;if(!puzzleHintArrow){svg.innerHTML="";return;}const a=squareIndex(puzzleHintArrow.from),b=squareIndex(puzzleHintArrow.to),x1=((puzzleOrientation==="w"?a.file:7-a.file)+.5)*100,x2=((puzzleOrientation==="w"?b.file:7-b.file)+.5)*100,y1=((puzzleOrientation==="w"?a.rank:7-a.rank)+.5)*100,y2=((puzzleOrientation==="w"?b.rank:7-b.rank)+.5)*100;svg.innerHTML='<defs><marker id="puzzleArrowhead" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#ffcc4e"/></marker></defs><line x1="'+x1+'%" y1="'+y1+'%" x2="'+x2+'%" y2="'+y2+'%" stroke="#ffcc4e" stroke-width="12" stroke-linecap="round" opacity=".9" marker-end="url(#puzzleArrowhead)"/>';}
+  function puzzleRatingChange(solved,rating){const target=Number(rating)||1200,expected=1/(1+Math.pow(10,(target-puzzleRating)/400)),actual=solved?1:0,k=Math.max(12,Math.min(32,32*puzzleRatingDeviation/350));puzzleRating=Math.max(100,Math.round(puzzleRating+k*(actual-expected)));puzzleRatingDeviation=Math.max(60,Math.round(puzzleRatingDeviation*.985));store.set("h2c-puzzle-rating",String(puzzleRating));store.set("h2c-puzzle-rd",String(puzzleRatingDeviation));}
+  function savePuzzleResult(solved){if(!puzzleSession)return;const row={id:"result-"+Date.now().toString(36),date:new Date().toISOString(),puzzleId:puzzleSession.record.id,rating:puzzleSession.record.rating||1200,solved:!!solved,errors:puzzleSession.errors,mode:puzzleSession.mode};puzzleResults.unshift(row);puzzleResults=puzzleResults.slice(0,500);store.set("h2c-puzzle-results",JSON.stringify(puzzleResults));}
+  function saveDailySolved(){const today=localDateKey();dailyProgress[today]=true;store.set("h2c-daily-progress",JSON.stringify(dailyProgress));}
+  function puzzleStreak(){const solved=new Set(Object.keys(dailyProgress).filter(day=>dailyProgress[day]));let day=new Date(),today=localDateKey();if(!solved.has(today))day.setDate(day.getDate()-1);let count=0;while(solved.has(localDateKey(day))&&count<400){count++;day.setDate(day.getDate()-1);}return count;}
+  function adjustPuzzleGameProgress(){if(!puzzleSession||puzzleSession.penalized)return;puzzleSession.penalized=true;puzzleRatingChange(false,puzzleSession.record.rating);}
+  function finishPuzzleSolved(){
+    if(!puzzleSession||puzzleSession.solved)return;puzzleSession.solved=true;puzzleRatingChange(true,puzzleSession.record.rating);savePuzzleResult(true);
+    if(puzzleSession.mode==="daily")saveDailySolved();
+    if(puzzleSession.mode==="rush"&&puzzleRush?.active){puzzleRush.score++;puzzleRush.combo++;puzzleRush.solved++;puzzleRush.bestCombo=Math.max(puzzleRush.bestCombo,puzzleRush.combo);setTimeout(nextRushPuzzle,550);}
+    else if(puzzleSession.mode==="duel"&&puzzleDuel?.active){clearTimeout(puzzleOpponentTimer);puzzleDuel.playerScore++;puzzleDuel.solved++;puzzleDuel.turnId++;setTimeout(nextDuelPuzzle,550);}
+    else{puzzleSession.hintText=settings.language==="en"?"Solved — excellent calculation!":"Giải chính xác — tính toán rất tốt!";if(activeSideRoute==="daily")puzzleDailyStatus=settings.language==="en"?"Solved today":"Đã giải hôm nay";}
+    renderActiveFeatureRoute();
+  }
+  function handlePuzzleWrongMove(){if(!puzzleSession)return;puzzleSession.errors++;puzzleSession.hintText=settings.language==="en"?"Not that move. Check forcing moves, captures, and king safety.":"Chưa đúng. Hãy xét nước chiếu, nước bắt quân và an toàn vua.";if(!puzzleSession.penalized)adjustPuzzleGameProgress();if(puzzleSession.mode==="rush"&&puzzleRush?.active){puzzleRush.combo=0;puzzleRush.errors++;if(puzzleRush.kind==="survival"){puzzleRush.lives--;if(puzzleRush.lives<=0)finishPuzzleRush();}else puzzleRush.seconds=Math.max(0,puzzleRush.seconds-5);if(puzzleRush.kind==="timed"&&puzzleRush.seconds<=0)finishPuzzleRush();}else if(puzzleSession.mode==="duel"&&puzzleDuel?.active)puzzleDuel.misses++;renderActiveFeatureRoute();}
+  function attemptPuzzleMove(from,to){if(!puzzleSession||puzzleSession.solved)return;const game=puzzleSession.game,expected=puzzleActiveMove();if(!expected)return;let move;try{move=game.move({from,to,promotion:expected[4]||"q"});}catch(_){}if(!move)return;const actual=move.from+move.to+(move.promotion||"");if(actual!==expected){game.undo();handlePuzzleWrongMove();return;}puzzleLastMove={from:move.from,to:move.to};puzzleSelected=null;puzzleLegalTargets=[];puzzleSession.index++;if(puzzleSession.index<puzzleSession.record.solution.length){const reply=puzzleSession.record.solution[puzzleSession.index];try{const response=game.move({from:reply.slice(0,2),to:reply.slice(2,4),promotion:reply[4]||"q"});if(response){puzzleLastMove={from:response.from,to:response.to};puzzleSession.index++;}}catch(_){}}if(puzzleSession.index>=puzzleSession.record.solution.length)finishPuzzleSolved();else{puzzleSession.hintText=settings.language==="en"?"Correct. Find the next forcing move.":"Đúng rồi. Hãy tìm tiếp nước ép buộc.";renderActiveFeatureRoute();}}
+  function handlePuzzleSquare(sq){if(!puzzleSession||puzzleSession.solved)return;const game=puzzleSession.game,piece=game.get(sq);if(puzzleSelected&&puzzleLegalTargets.includes(sq)){attemptPuzzleMove(puzzleSelected,sq);return;}if(piece&&piece.color===game.turn()){puzzleSelected=sq;puzzleLegalTargets=game.moves({square:sq,verbose:true}).map(move=>move.to);renderPuzzleBoard();return;}puzzleSelected=null;puzzleLegalTargets=[];renderPuzzleBoard();}
+  function requestPuzzleHint(level){if(!puzzleSession)return;const uci=puzzleActiveMove();if(!uci)return;const game=puzzleSession.game,piece=game.get(uci.slice(0,2)),en=settings.language==="en";puzzleHintSquares=[];puzzleHintArrow=null;if(level===1){const themes=puzzleSession.record.themes||[];puzzleSession.hintText=themes.length?(en?"Theme: ":"Chủ đề: ")+themes.map(theme=>puzzleThemeLabel(theme,en)).join(", "):(en?"Look for a forcing move.":"Hãy tìm một nước đi ép buộc.");}else if(level===2){puzzleHintSquares=[uci.slice(0,2)];const names=en?{p:"pawn",n:"knight",b:"bishop",r:"rook",q:"queen",k:"king"}:{p:"Tốt",n:"Mã",b:"Tượng",r:"Xe",q:"Hậu",k:"Vua"};puzzleSession.hintText=(en?"Consider the ":"Hãy cân nhắc quân ")+(names[piece?.type]||"piece")+(en?" on "+uci.slice(0,2)+".":" ở ô "+uci.slice(0,2)+".");}else{puzzleHintArrow={from:uci.slice(0,2),to:uci.slice(2,4)};const san=convertPvToSan([uci],game.fen()).first||uci;puzzleSession.hintText=(en?"Suggested move: ":"Nước gợi ý: ")+san+" ("+uci.slice(0,2)+"–"+uci.slice(2,4)+").";puzzleHintSquares=[uci.slice(0,2),uci.slice(2,4)];}renderActiveFeatureRoute();}
+  function revealPuzzleSolution(){if(!puzzleSession)return;puzzleSession.revealed=true;puzzleSession.hintText=(settings.language==="en"?"Solution: ":"Lời giải: ")+puzzleToSan(puzzleSession.record);if(!puzzleSession.penalized)adjustPuzzleGameProgress();renderActiveFeatureRoute();}
+
+
+  function puzzleSolvePanel(heading,subheading,extra,showNext){
+    const en=settings.language==="en",session=puzzleSession;if(!session)return '<div class="card empty-state">'+(en?"Choose a puzzle to start.":"Chọn một câu đố để bắt đầu.")+"</div>";
+    const status=session.solved?(en?"Solved":"Đã giải"):session.revealed?(en?"Solution shown":"Đã xem lời giải"):(session.hintText|| (en?"Your move":"Đến lượt bạn")),themes=(session.record.themes||[]).map(theme=>'<span class="puzzle-tag">'+escapeHtml(puzzleThemeLabel(theme,en))+"</span>").join("");
+    return '<section class="card puzzle-page-head"><div><span class="eyebrow eyebrow-soft">'+escapeHtml(heading)+'</span><h3>'+escapeHtml(session.record.name||session.record.id)+'</h3><p>'+escapeHtml(subheading||"")+'</p></div><div class="puzzle-rating-pill"><strong>'+Math.round(session.record.rating||1200)+'</strong><span>'+(en?"puzzle rating":"độ khó")+'</span></div></section><div class="puzzle-solve-layout"><div class="puzzle-board-area" id="puzzleBoardMount"></div><aside class="card puzzle-side-panel"><div class="puzzle-tag-row">'+themes+'</div><div class="puzzle-progress-line"><span>'+(en?"Line":"Biến")+'</span><strong>'+Math.min(session.index+1,session.record.solution.length)+' / '+session.record.solution.length+'</strong></div><p class="puzzle-feedback" id="puzzleFeedback" aria-live="polite">'+escapeHtml(status)+'</p><p class="puzzle-origin">'+escapeHtml(session.record.source||"How2Chess")+'</p><div class="puzzle-hint-buttons"><button class="btn btn-soft" type="button" data-puzzle-hint="1">1 · '+(en?"Theme":"Chủ đề")+'</button><button class="btn btn-soft" type="button" data-puzzle-hint="2">2 · '+(en?"Piece":"Quân")+'</button><button class="btn btn-soft" type="button" data-puzzle-hint="3">3 · '+(en?"Move":"Nước")+'</button></div><div class="puzzle-actions"><button class="btn btn-soft" type="button" data-puzzle-show>'+ (en?"Show solution":"Xem lời giải")+'</button><button class="btn btn-soft" type="button" data-puzzle-retry>'+ (en?"Retry":"Làm lại")+'</button>'+(showNext?'<button class="btn btn-primary" type="button" data-puzzle-next>'+ (en?"Next puzzle":"Câu tiếp theo")+'</button>':"")+(extra||"")+'</div><small class="puzzle-rating-note">'+(en?"Practice rating is a local estimate.":"Rating câu đố là ước tính cục bộ.")+'</small></aside></div>';
+  }
+  function mountPuzzlePanel(heading,subheading,extra,showNext){const host=$("#featureRouteBody");if(!host)return;host.innerHTML=puzzleSolvePanel(heading,subheading,extra,showNext);renderPuzzleBoard();}
+  function puzzleCalendarHTML(){const en=settings.language==="en",days=[],today=new Date();for(let n=27;n>=0;n--){const day=new Date(today);day.setDate(today.getDate()-n);const key=localDateKey(day);days.push('<span class="daily-day '+(dailyProgress[key]?"is-solved":"")+(key===localDateKey()?" is-today":"")+'" title="'+key+'">'+String(day.getDate())+"</span>");}return '<div class="daily-calendar" aria-label="'+(en?"Recent puzzle streak calendar":"Lịch câu đố gần đây")+'">'+days.join("")+'</div>';}
+  function dailyFallbackFor(date){const seed=String(date).split("").reduce((sum,ch)=>sum*31+ch.charCodeAt(0),7);return Object.assign({},STARTER_PUZZLES[Math.abs(seed)%STARTER_PUZZLES.length],{id:"offline-"+date,name:(settings.language==="en"?"Offline puzzle · ":"Câu đố offline · ")+date,date:date,source:"How2Chess offline pack"});}
+  function dailyCache(){const value=parseJSON(store.get("h2c-daily-cache","null"),null);return value&&value.date===localDateKey()?value:null;}
+  function parseDailyApiResponse(data){const p=data?.puzzle;if(!p?.fen||!Array.isArray(p.solution))return null;const record={id:"lichess-daily-"+p.id,name:settings.language==="en"?"Lichess daily puzzle":"Câu đố hàng ngày Lichess",fen:p.fen,solution:p.solution,rating:p.rating,themes:p.themes||[],source:"Lichess · CC0",date:localDateKey()};return puzzleSolutionIsLegal(record)?record:null;}
+  function refreshDailyPuzzle(){
+    const cached=dailyCache(),attempt=Number(store.get("h2c-daily-attempt","0"))||0;if(puzzleDailyPromise)return puzzleDailyPromise;
+    if(cached&&Date.now()-(cached.fetchedAt||0)<6*60*60*1000)return Promise.resolve(cached);
+    if(Date.now()-attempt<15*60*1000&&attempt)return Promise.resolve(cached);
+    puzzleDailyAttemptAt=Date.now();store.set("h2c-daily-attempt",String(puzzleDailyAttemptAt));puzzleDailyStatus=settings.language==="en"?"Checking Lichess…":"Đang kết nối Lichess…";
+    puzzleDailyPromise=(async()=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);try{
+      const response=await fetch("https://lichess.org/api/puzzle/daily",{method:"GET",headers:{Accept:"application/json"},credentials:"omit",mode:"cors",signal:controller.signal});
+      if(!response.ok)throw new Error("HTTP "+response.status);
+      const record=parseDailyApiResponse(await response.json());if(!record)throw new Error("Invalid puzzle response");
+      const value={date:localDateKey(),fetchedAt:Date.now(),puzzle:record};store.set("h2c-daily-cache",JSON.stringify(value));puzzleDailyStatus=settings.language==="en"?"Today's Lichess puzzle is ready.":"Đã tải câu đố Lichess hôm nay.";
+      if(activeSideRoute==="daily"&&(!puzzleSession||puzzleSession.mode!=="daily"||(!puzzleSession.index&&!puzzleSession.errors&&!puzzleSession.solved))){startPuzzleSession(record,"daily");renderDailyPuzzleRoute();}
+      return value;
+    }catch(_){puzzleDailyStatus=settings.language==="en"?"Offline fallback is active.":"Đang dùng câu đố offline.";return cached||{date:localDateKey(),fetchedAt:0,puzzle:dailyFallbackFor(localDateKey()),offline:true};}
+    finally{clearTimeout(timer);puzzleDailyPromise=null;if(activeSideRoute==="daily"){const el=$("#dailyNetworkStatus");if(el)el.textContent=puzzleDailyStatus;}}})();
+    return puzzleDailyPromise;
+  }
+  function renderDailyPuzzleRoute(){
+    const host=$("#featureRouteBody");if(!host)return;const today=localDateKey(),cached=dailyCache(),record=cached?.puzzle||dailyFallbackFor(today);
+    if(!puzzleSession||puzzleSession.mode!=="daily"||puzzleSession.record.date!==today)startPuzzleSession(record,"daily");
+    const en=settings.language==="en",solved=!!dailyProgress[today],status=puzzleDailyStatus||(cached?(en?"Today's puzzle cached on this device.":"Đã lưu câu đố hôm nay trên thiết bị."):(en?"Showing an offline puzzle while checking Lichess.":"Đang hiện bài offline trong lúc kiểm tra Lichess."));
+    const extra='<div class="daily-status-card"><strong>'+(en?"Practice streak: ":"Chuỗi ngày luyện: ")+puzzleStreak()+'</strong><small id="dailyNetworkStatus">'+escapeHtml(status)+'</small></div>';
+    host.innerHTML=puzzleSolvePanel(en?"DAILY PUZZLE":"CÂU ĐỐ HÀNG NGÀY",en?"One puzzle for today":"Một câu đố cho hôm nay",extra,false)+'<section class="card daily-progress"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"LAST 28 DAYS":"28 NGÀY GẦN ĐÂY")+'</span><h3>'+(en?"Daily streak":"Lịch luyện tập")+'</h3></div><strong class="daily-streak">'+puzzleStreak()+" "+(en?"day streak":"ngày liên tiếp")+'</strong></div>'+puzzleCalendarHTML()+'</section>';
+    renderPuzzleBoard();if(solved){const feedback=$("#puzzleFeedback");if(feedback)feedback.textContent=en?"Solved today — come back tomorrow.":"Bạn đã giải bài hôm nay — hẹn gặp lại ngày mai.";}
+    refreshDailyPuzzle();
+  }
+  function puzzleDifficultyMatch(record){const rating=Number(record.rating)||1200;return puzzleLibraryDifficulty==="easy"?rating<1200:puzzleLibraryDifficulty==="medium"?rating>=1200&&rating<1800:puzzleLibraryDifficulty==="hard"?rating>=1800:true;}
+  function renderPuzzleList(rows,loading){
+    const host=$("#puzzleList");if(!host)return;const en=settings.language==="en",starter=getPuzzleLocalList().filter(row=>(puzzleLibraryTheme==="all"||(row.themes||[]).includes(puzzleLibraryTheme))&&puzzleDifficultyMatch(row)),all=starter.concat((rows||[]).filter(row=>(puzzleLibraryTheme==="all"||(row.themes||[]).includes(puzzleLibraryTheme))&&puzzleDifficultyMatch(row))),unique=[],ids=new Set();
+    all.forEach(row=>{if(!ids.has(row.id)){ids.add(row.id);unique.push(row);}});puzzleLibraryItems=unique;
+    host.innerHTML=unique.length?unique.slice(0,60).map(row=>'<article class="puzzle-list-card"><div><strong>'+escapeHtml(row.name||row.id)+'</strong><span>'+Math.round(row.rating||1200)+' Elo · '+(row.themes||[]).slice(0,3).map(theme=>escapeHtml(puzzleThemeLabel(theme,en))).join(" · ")+'</span></div><button type="button" class="btn btn-primary" data-play-puzzle="'+escapeHtml(row.id)+'">'+(en?"Solve":"Giải")+'</button></article>').join(""):'<p class="feature-note">'+(loading?(en?"Loading local puzzle pack…":"Đang đọc kho câu đố cục bộ…"):(en?"No puzzles match these filters. Import the Lichess CC0 CSV below.":"Chưa có bài phù hợp. Hãy nhập tệp CSV CC0 của Lichess bên dưới."))+'</p>';
+  }
+  function renderPuzzleLibraryRoute(){
+    const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en";
+    if(puzzleSession&&puzzleSession.mode==="library"){mountPuzzlePanel(en?"PUZZLE LIBRARY":"KHO CÂU ĐỐ",en?"Solve the line, then review it.":"Giải biến chính rồi xem lại lời giải.",'<button class="btn btn-soft" type="button" data-puzzle-back>'+ (en?"Back to library":"Về kho câu đố")+'</button>',true);return;}
+    const themes=["all","mateIn1","mateIn2","fork","pin","hangingPiece","sacrifice","promotion","endgame","custom"],options=themes.map(theme=>'<option value="'+theme+'"'+(puzzleLibraryTheme===theme?" selected":"")+'>'+puzzleThemeLabel(theme,en)+'</option>').join(""),imported=puzzleImportedCount?((en?"Imported this session: ":"Đã nhập phiên này: ")+puzzleImportedCount.toLocaleString()+" puzzles"):(en?"No local Lichess pack yet.":"Chưa có kho Lichess cục bộ.");
+    host.innerHTML='<section class="card puzzle-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"TACTICS PRACTICE":"LUYỆN CHIẾN THUẬT")+'</span><h3>'+(en?"Puzzle library":"Kho câu đố")+'</h3><p>'+(en?"Start offline, or import a small CC0 slice from Lichess.":"Dùng kho mẫu offline hoặc nhập một phần dữ liệu CC0 của Lichess.")+'</p></div><div class="puzzle-rating-pill"><strong>'+puzzleRating+'</strong><span>'+(en?"practice rating":"rating câu đố")+'</span></div></section><div class="card puzzle-import-card"><div class="field-row"><label class="field-label" for="puzzleThemeFilter">'+(en?"Theme":"Chủ đề")+'</label><select id="puzzleThemeFilter">'+options+'</select><label class="field-label" for="puzzleDifficultyFilter">'+(en?"Difficulty":"Độ khó")+'</label><select id="puzzleDifficultyFilter"><option value="all">'+(en?"All levels":"Mọi mức")+'</option><option value="easy"'+(puzzleLibraryDifficulty==="easy"?" selected":"")+'>≤ 1199</option><option value="medium"'+(puzzleLibraryDifficulty==="medium"?" selected":"")+'>1200–1799</option><option value="hard"'+(puzzleLibraryDifficulty==="hard"?" selected":"")+'>≥ 1800</option></select><label class="field-label" for="puzzleImportLimit">'+(en?"Import limit":"Giới hạn nhập")+'</label><select id="puzzleImportLimit"><option value="100000">100,000</option><option value="300000">300,000</option></select></div><div class="puzzle-import-actions"><a class="btn btn-soft" href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener noreferrer">'+(en?"Lichess CC0 database":"Dữ liệu CC0 Lichess")+'</a><button class="btn btn-primary" type="button" data-puzzle-import>'+ (en?"Import puzzle CSV":"Nhập CSV câu đố")+'</button><input id="puzzleCsvFile" type="file" accept=".csv,text/csv" hidden><span id="puzzleImportStatus" aria-live="polite">'+escapeHtml(imported)+'</span></div><small class="puzzle-origin">'+(en?"Uncompress the official .zst file to CSV first; the importer streams at most the chosen number of valid puzzles into IndexedDB.":"Giải nén tệp .zst chính thức thành CSV trước; trình nhập đọc theo luồng và chỉ lưu tối đa số bài đã chọn vào IndexedDB.")+'</small></div><div class="puzzle-list" id="puzzleList"></div>';
+    renderPuzzleList([],false);const id=++puzzleLibraryRequest;
+    queryPuzzleDatabase(puzzleLibraryTheme,puzzleLibraryDifficulty,60).then(rows=>{if(id===puzzleLibraryRequest&&activeSideRoute==="puzzles")renderPuzzleList(rows,false);}).catch(()=>{const status=$("#puzzleImportStatus");if(status)status.textContent=en?"IndexedDB unavailable; starter set only.":"IndexedDB không dùng được; chỉ hiện kho mẫu offline.";});
+  }
+
+
+  function csvFields(line){const fields=[];let value="",quoted=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(quoted&&line[i+1]==='"'){value+='"';i++;}else quoted=!quoted;}else if(ch===","&&!quoted){fields.push(value);value="";}else value+=ch;}fields.push(value);return fields;}
+  function puzzleFromLichessCsv(line){
+    const fields=csvFields(line);if(fields.length<8||fields[0]==="PuzzleId"||!fields[0]||!C)return null;
+    const moves=(fields[2]||"").trim().split(/\s+/).filter(Boolean);if(moves.length<2)return null;
+    try{
+      const game=new C(fields[1]),first=moves[0],applied=game.move({from:first.slice(0,2),to:first.slice(2,4),promotion:first[4]||"q"});if(!applied)return null;
+      const record={id:"lichess-"+fields[0],name:"Lichess "+fields[0],fen:game.fen(),solution:moves.slice(1),rating:Number(fields[3])||1200,themes:(fields[7]||"").trim().split(/\s+/).filter(Boolean),source:"Lichess database · CC0"};
+      return puzzleSolutionIsLegal(record)?record:null;
+    }catch(_){return null;}
+  }
+  async function importLichessPuzzleFile(file){
+    const status=$("#puzzleImportStatus"),en=settings.language==="en";
+    if(!file||!file.name.toLowerCase().endsWith(".csv")){if(status)status.textContent=en?"Choose the uncompressed .csv file.":"Chọn tệp .csv đã giải nén trước.";return;}
+    if(!file.stream){if(status)status.textContent=en?"This browser cannot stream the file.":"Trình duyệt này chưa hỗ trợ đọc tệp theo luồng.";return;}
+    const limit=Math.max(1000,Math.min(300000,Number($("#puzzleImportLimit")?.value)||100000));let reader=null,count=0,lineNumber=0,buffer="",batch=[];
+    try{
+      reader=file.stream().getReader();const decoder=new TextDecoder();
+      const saveBatch=async()=>{if(batch.length){await savePuzzleBatch(batch);batch=[];}};
+      const consume=async line=>{line=line.replace(/\r$/,"");if(!line.trim())return;const record=puzzleFromLichessCsv(line);lineNumber++;if(record){batch.push(record);count++;}if(batch.length>=1000)await saveBatch();if(status&&lineNumber%1000===0)status.textContent=(en?"Reading · saved ":"Đang đọc · đã lưu ")+count.toLocaleString()+" / "+limit.toLocaleString();};
+      while(count<limit){const part=await reader.read();buffer+=decoder.decode(part.value||new Uint8Array(),{stream:!part.done});const lines=buffer.split(/\n/);buffer=lines.pop()||"";for(const line of lines){await consume(line);if(count>=limit)break;}if(part.done)break;}
+      if(count<limit&&buffer.trim())await consume(buffer);await saveBatch();
+      puzzleImportedCount+=count;store.set("h2c-puzzle-import-count",String(puzzleImportedCount));if(status)status.textContent=(en?"Imported ":"Đã nhập ")+count.toLocaleString()+(en?" puzzles into IndexedDB.":" câu đố vào IndexedDB.");renderPuzzleLibraryRoute();
+    }catch(error){if(status)status.textContent=(en?"Import stopped: ":"Đã dừng nhập: ")+(error?.message||"IndexedDB error");}
+    finally{try{reader?.releaseLock();}catch(_){}}
+  }
+  function renderPuzzleRushRoute(){
+    const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en";
+    if(!puzzleRush||!puzzleRush.active){const best=Number(store.get("h2c-rush-best","0"))||0;host.innerHTML='<section class="card puzzle-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"TIMED TACTICS":"THỬ THÁCH TỐC ĐỘ")+'</span><h3>'+(en?"Puzzle Rush":"Câu đố nhanh")+'</h3><p>'+(en?"Solve as many as you can before time runs out, or stop after three mistakes.":"Giải càng nhiều càng tốt trước khi hết giờ, hoặc dừng sau ba lỗi.")+'</p></div><div class="puzzle-rating-pill"><strong>'+best+'</strong><span>'+(en?"personal best":"kỷ lục")+'</span></div></section><div class="rush-choice-grid"><button class="card rush-choice" type="button" data-rush-start="180"><strong>3:00</strong><span>'+(en?"Three-minute run":"Chạy đua 3 phút")+'</span></button><button class="card rush-choice" type="button" data-rush-start="300"><strong>5:00</strong><span>'+(en?"Five-minute run":"Chạy đua 5 phút")+'</span></button><button class="card rush-choice" type="button" data-rush-start="survival"><strong>3 ×</strong><span>'+(en?"Survival · three mistakes":"Sinh tồn · tối đa 3 lỗi")+'</span></button></div>'+(puzzleRush?.finished?'<div class="card rush-result"><strong>'+(en?"Last run: ":"Lượt gần nhất: ")+puzzleRush.score+'</strong><span>'+(en?"Best combo: ":"Combo tốt nhất: ")+puzzleRush.bestCombo+'</span></div>':"");return;}
+    const timer=puzzleRush.kind==="timed"?'<div class="rush-timer" id="rushTimer">'+Math.floor(puzzleRush.seconds/60)+":"+String(puzzleRush.seconds%60).padStart(2,"0")+'</div>':'<div class="rush-timer" id="rushTimer">'+(en?"Mistakes left: ":"Lỗi còn lại: ")+puzzleRush.lives+'</div>',extra='<div class="rush-live-score">'+timer+'<strong>'+(en?"Score ":"Điểm ")+puzzleRush.score+'</strong><span>Combo '+puzzleRush.combo+'</span><button class="btn btn-soft" type="button" data-rush-stop>'+(en?"Finish run":"Kết thúc")+'</button></div>';
+    mountPuzzlePanel(en?"PUZZLE RUSH":"CÂU ĐỐ NHANH",en?"Solve quickly to build a combo.":"Giải nhanh để tăng combo.",extra,false);
+  }
+  function chooseLocalPuzzle(minRating){const pool=getPuzzleLocalList().filter(puzzle=>puzzleSolutionIsLegal(puzzle));if(!pool.length)return STARTER_PUZZLES[0];const target=Math.max(400,Number(minRating)||puzzleRating),sorted=pool.slice().sort((a,b)=>Math.abs((a.rating||1200)-target)-Math.abs((b.rating||1200)-target));return sorted[Math.floor(Math.random()*Math.min(3,sorted.length))]||sorted[0];}
+  function clearPuzzleTimers(){if(puzzleTimer){clearInterval(puzzleTimer);puzzleTimer=null;}if(puzzleOpponentTimer){clearTimeout(puzzleOpponentTimer);puzzleOpponentTimer=null;}}
+  function finishPuzzleRush(){if(!puzzleRush)return;clearPuzzleTimers();puzzleRush.active=false;puzzleRush.finished=true;const best=Number(store.get("h2c-rush-best","0"))||0;if(puzzleRush.score>best)store.set("h2c-rush-best",String(puzzleRush.score));if(activeSideRoute==="puzzle-rush")renderPuzzleRushRoute();}
+  function nextRushPuzzle(){if(!puzzleRush?.active)return;const record=chooseLocalPuzzle(puzzleRating+Math.min(900,puzzleRush.score*70));startPuzzleSession(record,"rush");if(activeSideRoute==="puzzle-rush")renderPuzzleRushRoute();}
+  function startPuzzleRush(choice){clearPuzzleTimers();const timed=choice!=="survival";puzzleRush={kind:timed?"timed":"survival",seconds:timed?Number(choice):0,score:0,combo:0,bestCombo:0,errors:0,lives:3,solved:0,active:true,finished:false};nextRushPuzzle();if(timed)puzzleTimer=setInterval(()=>{if(!puzzleRush?.active)return;puzzleRush.seconds--;const el=$("#rushTimer");if(el)el.textContent=Math.floor(puzzleRush.seconds/60)+":"+String(puzzleRush.seconds%60).padStart(2,"0");if(puzzleRush.seconds<=0)finishPuzzleRush();},1000);}
+  function renderPuzzleCustomRoute(){
+    const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en",cards=puzzleCustoms.map(puzzle=>'<article class="puzzle-list-card"><div><strong>'+escapeHtml(puzzle.name)+'</strong><span>'+Math.round(puzzle.rating||1200)+' Elo · '+escapeHtml((puzzle.themes||[]).map(theme=>puzzleThemeLabel(theme,en)).join(", ")||"Custom")+'</span></div><button type="button" class="btn btn-primary" data-play-puzzle="'+escapeHtml(puzzle.id)+'">'+(en?"Solve":"Giải")+'</button></article>').join("");
+    host.innerHTML='<section class="card puzzle-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"CREATE YOUR OWN":"TẠO CÂU ĐỐ RIÊNG")+'</span><h3>'+(en?"Puzzle workshop":"Xưởng câu đố")+'</h3><p>'+(en?"Use a FEN from the board builder and enter one legal UCI solution line.":"Dùng FEN từ bàn dựng thế cờ rồi nhập một biến chính UCI hợp lệ.")+'</p></div></section><section class="card custom-puzzle-form"><div class="field-row"><label class="field-label" for="customPuzzleName">'+(en?"Name":"Tên câu đố")+'</label><input id="customPuzzleName" maxlength="80" placeholder="'+(en?"A tactical idea":"Ý tưởng chiến thuật")+'"><label class="field-label" for="customPuzzleRating">'+(en?"Difficulty rating":"Độ khó")+'</label><input id="customPuzzleRating" type="number" min="100" max="3000" value="1200"></div><label class="field-label" for="customPuzzleFen">FEN</label><textarea id="customPuzzleFen" rows="3" spellcheck="false" placeholder="'+(en?"Paste a FEN position":"Dán FEN thế cờ")+'"></textarea><div class="field-row"><label class="field-label" for="customPuzzleMoves">'+(en?"Solution in UCI":"Lời giải dạng UCI")+'</label><input id="customPuzzleMoves" spellcheck="false" placeholder="e2e4 e7e5 g1f3"><label class="field-label" for="customPuzzleDescription">'+(en?"Description":"Mô tả")+'</label><input id="customPuzzleDescription" maxlength="180" placeholder="'+(en?"What should the solver notice?":"Người giải cần nhận ra điều gì?")+'"></div><div class="puzzle-import-actions"><button class="btn btn-soft" type="button" data-custom-use-fen>'+(en?"Use current board FEN":"Lấy FEN từ bàn hiện tại")+'</button><button class="btn btn-primary" type="button" data-custom-save>'+(en?"Save puzzle":"Lưu câu đố")+'</button><button class="btn btn-soft" type="button" data-custom-share>'+(en?"Copy FEN + solution":"Sao chép FEN + lời giải")+'</button></div><p class="puzzle-origin" id="customPuzzleStatus" aria-live="polite">'+(en?"Every UCI move is checked; uniqueness is not proved.":"Ứng dụng kiểm tra các nước hợp lệ; chưa chứng minh lời giải là duy nhất.")+'</p></section><section class="card custom-library"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"SAVED PUZZLES":"CÂU ĐỐ ĐÃ LƯU")+'</span><h3>'+puzzleCustoms.length+" "+(en?"puzzles":"câu đố")+'</h3></div></div>'+(cards||'<p class="feature-note">'+(en?"Your saved puzzles appear here.":"Câu đố bạn tạo sẽ xuất hiện tại đây.")+'</p>')+'</section>';
+  }
+  function saveCustomPuzzle(){
+    const en=settings.language==="en",name=($("#customPuzzleName")?.value||"").trim()||(en?"My puzzle":"Câu đố của tôi"),fen=($("#customPuzzleFen")?.value||"").trim(),description=($("#customPuzzleDescription")?.value||"").trim(),solution=($("#customPuzzleMoves")?.value||"").trim().split(/[\s,]+/).filter(Boolean).map(move=>move.toLowerCase()),rating=Math.max(100,Math.min(3000,Number($("#customPuzzleRating")?.value)||1200)),status=$("#customPuzzleStatus"),record={id:"custom-"+Date.now().toString(36),name,fen,solution,rating,themes:["custom"],description,source:"How2Chess · custom"};
+    if(!puzzleSolutionIsLegal(record)){if(status)status.textContent=en?"Invalid FEN or illegal UCI solution. Check the full line.":"FEN không hợp lệ hoặc chuỗi UCI có nước bất hợp lệ. Hãy kiểm tra biến.";return;}
+    puzzleCustoms.unshift(record);puzzleCustoms=puzzleCustoms.slice(0,200);store.set("h2c-custom-puzzles",JSON.stringify(puzzleCustoms));const item={id:"puzzle-"+record.id,name,fen,updatedAt:new Date().toISOString(),eval:null,source:"puzzle",puzzleSolution:solution,description};savedBoards.unshift(item);savedBoards=savedBoards.slice(0,2000);persistLibrary();renderLibrary();if(status)status.textContent=en?"Saved locally and added to Library.":"Đã lưu trên thiết bị và thêm vào Library.";renderPuzzleCustomRoute();
+  }
+  function shareCustomPuzzle(){const fen=($("#customPuzzleFen")?.value||"").trim(),moves=($("#customPuzzleMoves")?.value||"").trim();if(!fen||!moves){pushToast(settings.language==="en"?"Enter a FEN and solution first.":"Nhập FEN và lời giải trước.");return;}copyText(fen+"\n"+moves,settings.language==="en"?"FEN and solution copied.":"Đã sao chép FEN và lời giải.");}
+  function startDuel(botElo){clearPuzzleTimers();puzzleDuel={active:true,finished:false,seconds:90,botElo:Math.max(250,Math.min(2500,Number(botElo)||1200)),playerScore:0,botScore:0,solved:0,misses:0,turnId:0};nextDuelPuzzle();puzzleTimer=setInterval(()=>{if(!puzzleDuel?.active)return;puzzleDuel.seconds--;const el=$("#duelTimer");if(el)el.textContent=puzzleDuel.seconds;if(puzzleDuel.seconds<=0)finishPuzzleDuel();},1000);}
+  function scheduleDuelOpponent(){if(!puzzleDuel?.active)return;clearTimeout(puzzleOpponentTimer);const difficulty=Number(puzzleSession?.record.rating)||1200,delay=Math.max(2200,Math.min(14000,11800-(puzzleDuel.botElo-700)*3+(difficulty-1200)*1.2)),id=puzzleDuel.turnId;puzzleOpponentTimer=setTimeout(()=>{if(!puzzleDuel?.active||puzzleDuel.turnId!==id)return;puzzleDuel.botScore++;puzzleDuel.turnId++;puzzleSession=null;nextDuelPuzzle();},delay);}
+  function nextDuelPuzzle(){if(!puzzleDuel?.active)return;const record=chooseLocalPuzzle(puzzleRating+Math.min(600,puzzleDuel.playerScore*40));startPuzzleSession(record,"duel");puzzleDuel.turnId++;scheduleDuelOpponent();if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();}
+  function finishPuzzleDuel(){if(!puzzleDuel)return;clearPuzzleTimers();puzzleDuel.active=false;puzzleDuel.finished=true;const best=Number(store.get("h2c-duel-best","0"))||0;if(puzzleDuel.playerScore>best)store.set("h2c-duel-best",String(puzzleDuel.playerScore));if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();}
+  function renderPuzzleDuelRoute(){
+    const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en";
+    if(!puzzleDuel?.active){host.innerHTML='<section class="card puzzle-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"PUZZLE DUEL":"ĐẤU CỜ THẾ")+'</span><h3>'+(en?"Race a local bot":"Đua giải câu đố với Bot")+'</h3><p>'+(en?"Solve a sequence before a simulated opponent. Results stay on this device.":"Cùng giải câu đố trong 90 giây với đối thủ mô phỏng; kết quả lưu trên thiết bị.")+'</p></div><div class="puzzle-rating-pill"><strong>'+(Number(store.get("h2c-duel-best","0"))||0)+'</strong><span>'+(en?"best score":"điểm cao nhất")+'</span></div></section><div class="card duel-setup"><label class="field-label" for="duelBotElo">'+(en?"Opponent strength":"Elo đối thủ")+'</label><input id="duelBotElo" type="range" min="250" max="2500" step="50" value="1200"><span id="duelBotEloValue">1200 Elo</span><button class="btn btn-primary" type="button" data-duel-start>'+(en?"Start 90-second duel":"Bắt đầu đấu 90 giây")+'</button></div>'+(puzzleDuel?.finished?'<div class="card rush-result"><strong>'+(en?"Your score: ":"Điểm của bạn: ")+puzzleDuel.playerScore+'</strong><span>'+(en?"Bot: ":"Bot: ")+puzzleDuel.botScore+'</span></div>':"");return;}
+    const extra='<div class="duel-score-bar"><strong>'+(en?"You ":"Bạn ")+puzzleDuel.playerScore+'</strong><span>VS</span><strong>H2C Bot · '+puzzleDuel.botElo+" · "+puzzleDuel.botScore+'</strong><span class="duel-timer" id="duelTimer">'+puzzleDuel.seconds+'</span></div>';
+    mountPuzzlePanel(en?"90-SECOND DUEL":"ĐẤU CỜ THẾ · 90 GIÂY",en?"Solve before the bot's timer expires.":"Giải trước khi bộ đếm của Bot về 0.",extra,false);
+  }
+
+function renderActiveFeatureRoute() {
     if(activeSideRoute==="bot")renderBotRoute();
     else if(activeSideRoute==="coach")renderCoachRoute();
     else if(activeSideRoute==="history")renderHistoryRoute();
     else if(activeSideRoute==="stats")renderStatsRoute();
+    else if(activeSideRoute==="puzzles")renderPuzzleLibraryRoute();
+    else if(activeSideRoute==="daily")renderDailyPuzzleRoute();
+    else if(activeSideRoute==="puzzle-rush")renderPuzzleRushRoute();
+    else if(activeSideRoute==="puzzle-custom")renderPuzzleCustomRoute();
+    else if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();
   }
   function parseClockChoice(choice) {
     if(!choice||choice==="none")return {base:null,increment:0};
@@ -599,6 +761,33 @@
     downloadTextFile("how2chess-games.pgn",savedGames.slice().reverse().map(game=>game.pgn||createGamePgn(game)).join("\n"),"application/x-chess-pgn;charset=utf-8");
   }
   function handleFeatureClick(event) {
+    const puzzleSquare=event.target.closest("[data-puzzle-square]");
+    if(puzzleSquare){handlePuzzleSquare(puzzleSquare.dataset.puzzleSquare);return;}
+    if(event.target.closest("[data-puzzle-import]")){$("#puzzleCsvFile")?.click();return;}
+    const playPuzzle=event.target.closest("[data-play-puzzle]");
+    if(playPuzzle){getPuzzleById(playPuzzle.dataset.playPuzzle).then(record=>{
+      if(!record){pushToast(settings.language==="en"?"Puzzle not found in local storage.":"Không tìm thấy câu đố trong bộ nhớ.");return;}
+      if(!startPuzzleSession(record,"library"))return;
+      if(activeSideRoute==="puzzle-custom")navigateSideRoute("puzzles");else renderActiveFeatureRoute();
+    }).catch(error=>pushToast((settings.language==="en"?"Could not open puzzle: ":"Không mở được câu đố: ")+(error?.message||"storage error")));return;}
+    const puzzleHint=event.target.closest("[data-puzzle-hint]");
+    if(puzzleHint){requestPuzzleHint(Number(puzzleHint.dataset.puzzleHint));return;}
+    if(event.target.closest("[data-puzzle-show]")){revealPuzzleSolution();return;}
+    if(event.target.closest("[data-puzzle-retry]")){if(puzzleSession&&startPuzzleSession(puzzleSession.record,puzzleSession.mode))renderActiveFeatureRoute();return;}
+    if(event.target.closest("[data-puzzle-back]")){puzzleSession=null;renderPuzzleLibraryRoute();return;}
+    if(event.target.closest("[data-puzzle-next]")){
+      if(puzzleSession?.mode==="rush")nextRushPuzzle();
+      else if(puzzleSession?.mode==="duel")nextDuelPuzzle();
+      else if(startPuzzleSession(chooseLocalPuzzle(puzzleRating),"library"))renderPuzzleLibraryRoute();
+      return;
+    }
+    const rushStart=event.target.closest("[data-rush-start]");
+    if(rushStart){startPuzzleRush(rushStart.dataset.rushStart);return;}
+    if(event.target.closest("[data-rush-stop]")){finishPuzzleRush();return;}
+    if(event.target.closest("[data-custom-use-fen]")){const input=$("#customPuzzleFen"),status=$("#customPuzzleStatus");if(input)input.value=boardFen();if(status)status.textContent=settings.language==="en"?"Current board FEN copied into the form.":"Đã lấy FEN từ bàn cờ hiện tại.";return;}
+    if(event.target.closest("[data-custom-save]")){saveCustomPuzzle();return;}
+    if(event.target.closest("[data-custom-share]")){shareCustomPuzzle();return;}
+    if(event.target.closest("[data-duel-start]")){startDuel($("#duelBotElo")?.value);return;}
     const select=event.target.closest("[data-select-bot]");
     if(select){selectedBotId=select.dataset.selectBot;renderBotRoute();return;}
     if(event.target.closest("[data-start-bot]")){startBotGame();return;}
@@ -622,6 +811,9 @@
   }
   function handleFeatureChange(event) {
     const target=event.target;
+    if(target.id==="puzzleCsvFile"){importLichessPuzzleFile(target.files?.[0]);return;}
+    if(target.id==="puzzleThemeFilter"){puzzleLibraryTheme=target.value;renderPuzzleLibraryRoute();return;}
+    if(target.id==="puzzleDifficultyFilter"){puzzleLibraryDifficulty=target.value;renderPuzzleLibraryRoute();return;}
     if(target.id==="coachRouteToggle"){setCoachEnabled(target.checked);return;}
     if(target.id==="historyPgnFile"){importPgnFile(target.files?.[0]);return;}
     if(target.id==="historyFilter"){historyFilter=target.value;renderHistoryRoute();return;}
@@ -804,7 +996,7 @@
     $("#screenTitle").textContent=en?item.en:item.vi;$("#routeGroup").textContent=en?group.en:group.vi;
     $("#routeTitle").textContent=en?item.en:item.vi;$("#routeDescription").textContent=en?item.descEn:item.descVi;
     $("#routeIcon").innerHTML=routeIconSVG(item.id);$("#routeStage").textContent=en?"STEP "+item.stage:"BƯỚC "+item.stage;
-    const ready=["bot","coach","history","stats"].includes(routeId);
+    const ready=["bot","coach","history","stats","puzzles","daily","puzzle-rush","puzzle-custom","puzzle-duel"].includes(routeId);
     $("#routePlaceholder").hidden=ready;$("#featureRouteBody").hidden=!ready;
     if(ready){
       $("#routeStatus").textContent=en?"Available now":"Đã sẵn sàng";
@@ -1368,7 +1560,7 @@
     $("#featureRouteBody").addEventListener("dragover",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.types?.includes("Files")){event.preventDefault();$("#featureRouteBody").classList.add("drag-over");}});
     $("#featureRouteBody").addEventListener("dragleave",event=>{if(!$("#featureRouteBody").contains(event.relatedTarget))$("#featureRouteBody").classList.remove("drag-over");});
     $("#featureRouteBody").addEventListener("drop",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.files?.length){event.preventDefault();$("#featureRouteBody").classList.remove("drag-over");importPgnFile(event.dataTransfer.files[0]);}});
-    $("#featureRouteBody").addEventListener("input",event=>{if(event.target.id==="historySearch"){const value=event.target.value,start=event.target.selectionStart;renderHistoryRoute(value);const input=$("#historySearch");input?.focus();input?.setSelectionRange(start,start);}});
+    $("#featureRouteBody").addEventListener("input",event=>{if(event.target.id==="duelBotElo"){const value=$("#duelBotEloValue");if(value)value.textContent=event.target.value+" Elo";return;}if(event.target.id==="historySearch"){const value=event.target.value,start=event.target.selectionStart;renderHistoryRoute(value);const input=$("#historySearch");input?.focus();input?.setSelectionRange(start,start);}});
     $("#drawerNavigation").addEventListener("click",event=>{
       const link=event.target.closest("[data-route]");if(!link)return;
       event.preventDefault();navigateSideRoute(link.dataset.route);
