@@ -2,16 +2,6 @@
 
 How2Chess is a static, mobile-first PWA for arranging chess positions, checking legal moves, analyzing with Stockfish, and saving positions locally. The same source supports a browser install and an Android wrapper built with Capacitor.
 
-## Bước 6: Theo dõi và Chơi ngay
-
-- `#/featured`: broadcast đang phát từ API công khai Lichess.
-- `#/events`: Arena sắp tới/đang diễn ra và broadcast; lọc ngày, tải lời nhắc `.ics`.
-- `#/tv`: Lichess TV theo kênh Best, Blitz, Rapid, Bullet, Classical hoặc Chess960.
-- `#/streamers`: danh sách streamer công khai; liên kết mở bên ngoài, không nhúng video.
-- `#/play`: mở ván ngoại tuyến với bot gần rating cục bộ nhất.
-
-Request ngoài timeout sau 12 giây, chạy lần lượt cách nhau tối thiểu 1,2 giây, cache cục bộ 5 phút và giữ dữ liệu cũ khi offline. Khi nhận HTTP 429, ứng dụng chờ 60 giây trước lần thử mới. Nguồn dùng endpoint `/api/broadcast?nb=20&live=true`, `/api/tournament`, `/api/streamer/live`. Dữ liệu mới cần mạng. Chưa bật đăng nhập Lichess, ghép người chơi trực tuyến hay WebRTC.
-
 ## What is included
 
 - index.html, app.css, app.js: landing page and the three app tabs: H2C, Library, Options.
