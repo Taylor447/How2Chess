@@ -27,6 +27,8 @@ test("bot game setup is connected to the existing Stockfish worker and legal mov
 
 test("timed games, takebacks, and end-of-game results are wired", () => {
   assert.ok(html.includes('id="gameClockBar"'));
+  assert.ok(html.includes('id="resignBotGame"'));
+  assert.match(app, /finishBotMatch\(opposite\(botMatch\.playerColor\),"resign"\)/);
   assert.match(app, /function tickBotClock\(\)/);
   assert.match(app, /function undo\(\)[\s\S]*?botAllowUndo/);
   assert.match(app, /reason==="timeout"/);

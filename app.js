@@ -512,7 +512,7 @@
     $("#builderMode").disabled=false;$("#engineMode").disabled=false;$("#turnBtn").disabled=false;
     updateGameClockDisplay();renderAll();
     const en=settings.language==="en",resultWord=en?({win:"Won",draw:"Drawn",loss:"Lost"}[result]):({win:"Bạn thắng",draw:"Hòa",loss:"Bot thắng"}[result]);
-    const reasonText=reason==="checkmate"?(en?"by checkmate":"do chiếu hết"):reason==="timeout"?(en?"on time":"do hết giờ"):reason==="draw"?(en?"by draw":"do hòa"):"";
+    const reasonText=reason==="checkmate"?(en?"by checkmate":"do chiếu hết"):reason==="timeout"?(en?"on time":"do hết giờ"):reason==="draw"?(en?"by draw":"do hòa"):reason==="resign"?(en?"by resignation":"do xin thua"):"";
     showModal((en?"Game complete":"Kết thúc ván"),'<p><strong>'+resultWord+'</strong> '+reasonText+'</p><p>'+(en?"Estimated rating: ":"Rating ước tính: ")+before+' → <strong>'+playerRating+'</strong></p><p>'+(game.moveCount||0)+' '+(en?"half-moves":"nửa nước")+" · "+escapeHtml(botMatch.botName)+" · "+botMatch.botElo+" Elo</p>",[
       {label:en?"Review game":"Phân tích ván",className:"btn-primary",value:"review"},
       {label:en?"Close":"Đóng",className:"btn-soft",value:"close"}
@@ -1195,6 +1195,7 @@
     $("#drawerClose").addEventListener("click",()=>closeSideDrawer(true));
     $("#drawerScrim").addEventListener("click",()=>closeSideDrawer(true));
     $("#routeHome").addEventListener("click",()=>setScreen("h2c",true));
+    $("#resignBotGame").addEventListener("click",()=>{if(!botMatch||botMatch.finished)return;showModal(settings.language==="en"?"Resign this game?":"Xin thua ván này?",'<p>'+(settings.language==="en"?"The game will be saved as a loss.":"Ván sẽ được lưu là một trận thua.")+'</p>',[{label:settings.language==="en"?"Keep playing":"Tiếp tục",value:"keep"},{label:settings.language==="en"?"Resign":"Xin thua",className:"btn-primary",value:"resign"}]).then(value=>{if(value==="resign")finishBotMatch(opposite(botMatch.playerColor),"resign");});});
     $("#featureRouteBody").addEventListener("click",handleFeatureClick);
     $("#featureRouteBody").addEventListener("change",handleFeatureChange);
     $("#featureRouteBody").addEventListener("dragover",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.types?.includes("Files")){event.preventDefault();$("#featureRouteBody").classList.add("drag-over");}});
