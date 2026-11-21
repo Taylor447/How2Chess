@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "how2chess-v6";
+const CACHE_NAME = "how2chess-v7";
 const LOCAL_ASSETS = [
   "./",
   "./index.html",
@@ -15,11 +15,12 @@ const LOCAL_ASSETS = [
   "./icons/icon-192.svg",
   "./icons/icon-512.svg",
   "./models/how2chess.int8.onnx",
+  "./vendor/chess/chess.js",
+  "./vendor/chess/LICENSE",
   "./vendor/onnxruntime-web/ort.min.js",
   "./vendor/onnxruntime-web/ort-wasm-simd-threaded.mjs"
 ];
 const REMOTE_ASSETS = [
-  "https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js",
   "https://esm.sh/chessops@0.15.1?bundle",
   "https://cdn.jsdelivr.net/npm/stockfish@19.0.0/bin/stockfish-19-lite-single.js",
   "https://cdn.jsdelivr.net/npm/stockfish@19.0.0/bin/stockfish-19-lite-single.wasm",
