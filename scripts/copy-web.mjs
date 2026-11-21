@@ -6,6 +6,8 @@ const files = [
   "index.html",
   "app.css",
   "app.js",
+  "variant-runtime.mjs",
+  "variant-utils.mjs",
   "engine-worker.js",
   "onnx-engine-worker.js",
   "sw.js",
