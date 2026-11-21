@@ -11,6 +11,8 @@ How2Chess is a static, mobile-first PWA for arranging chess positions, checking 
 
 The interface and local app data have no backend. Saved boards and preferences use localStorage. Stockfish and chess.js are loaded from pinned public CDNs when needed; the service worker attempts to cache those files for repeat offline use after the first successful connection.
 
+The Resources card is hidden in the app interface. License notices remain in `LICENSES.md` and the upstream notices bundled with dependencies.
+
 ## Run locally
 
 The interface may open from index.html, but browsers can restrict workers and service workers on file://. For full engine/PWA behavior, serve the folder over localhost:

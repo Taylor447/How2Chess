@@ -1,0 +1,8 @@
+{
+  "appId": "com.how2chess.app",
+  "appName": "How2Chess",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

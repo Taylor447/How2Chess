@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="piece-k" viewBox="0 0 100 100">
+    <path d="M46 8h8v11h11v8H54v11h-8V27H35v-8h11zM39 43h22l7 32H32zM25 79h50v10H25zM20 91h60v6H20z"/>
+  </symbol>
+  <symbol id="piece-q" viewBox="0 0 100 100">
+    <circle cx="22" cy="23" r="7"/><circle cx="40" cy="15" r="7"/><circle cx="60" cy="15" r="7"/><circle cx="78" cy="23" r="7"/>
+    <path d="m17 35 14 9 6-15 13 14 13-14 6 15 14-9-9 37H26zM28 77h44v10H28zM22 90h56v7H22z"/>
+  </symbol>
+  <symbol id="piece-r" viewBox="0 0 100 100">
+    <path d="M23 13h14v12h12V13h14v12h14V13h8v22H17V13h6zM24 39h52l-5 36H29zM22 79h56v10H22zM17 92h66v6H17z"/>
+  </symbol>
+  <symbol id="piece-b" viewBox="0 0 100 100">
+    <path d="M50 12c-13 0-22 10-22 22 0 10 6 17 13 22l-9 19h36l-9-19c7-5 13-12 13-22 0-12-9-22-22-22zm0 9 7 10-7 9-7-9zM27 79h46v10H27zM20 92h60v6H20z"/>
+  </symbol>
+  <symbol id="piece-n" viewBox="0 0 100 100">
+    <path d="M24 79c2-11 7-18 16-25l-9-10c-4-5-3-11 2-15l12-11c8-7 20-8 29-2l12 8-8 8 7 12-9 17 3 18zM40 72h38l-2 7H32l3-7zM21 89h60v9H21z"/>
+    <circle cx="62" cy="35" r="2.4" fill="#ffd16b"/>
+  </symbol>
+  <symbol id="piece-p" viewBox="0 0 100 100">
+    <circle cx="50" cy="28" r="13"/><path d="M42 44h16l4 8c2 5 7 9 10 14l4 12H24l4-12c3-5 8-9 10-14zM28 81h44v8H28zM20 92h60v6H20z"/>
+  </symbol>
+</svg>

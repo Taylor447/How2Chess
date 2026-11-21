@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1b3b">
+  <meta name="description" content="How2Chess — dựng thế cờ, phân tích nước đi cùng Stockfish và lưu thư viện cờ của bạn.">
+  <meta property="og:title" content="How2Chess — Chess Calculator">
+  <meta property="og:description" content="Phân tích cờ vua ngay trên trình duyệt với Stockfish. Dựng thế cờ, khám phá nước đi và lưu các vị trí yêu thích.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="./icons/icon-512.svg">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="./icons/icon-192.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./app.css">
+  <title>How2Chess — Chess Calculator</title>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="How2Chess trang chủ">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48"><path d="M24 7a6 6 0 1 0 0 12 6 6 0 0 0 0-12ZM17 20h14l-2 11H19l-2-11Zm-4 13h22v4H13z" fill="currentColor"/><path d="M21 22h6l-1 6h-4z" fill="#ffd16b"/></svg>
+      </span>
+      <span class="brand-copy"><strong>How2Chess</strong><small>CHESS CALCULATOR</small></span>
+    </a>
+    <div class="top-actions">
+      <span id="engineBadge" class="engine-badge"><i></i><span data-i18n="engineReady">Engine chưa tải</span></span>
+      <button class="icon-btn" id="themeQuick" aria-label="Đổi giao diện" title="Đổi giao diện">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42m-9.88 9.88-1.42 1.42M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="landing wrap" id="landing">
+      <div class="landing-hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="eyebrow-dot"></span> Chess, made clearer</div>
+          <h1>Đọc thế cờ.<br><em>Tìm nước hay.</em></h1>
+          <p>Dựng vị trí của bạn, để Stockfish phân tích và lưu mọi ý tưởng vào một thư viện riêng — tất cả ngay trên thiết bị.</p>
+          <div class="hero-actions">
+            <button class="btn btn-light" id="openAppBtn">Mở ứng dụng <span aria-hidden="true">↗</span></button>
+            <button class="btn btn-glass" id="installBtn">Cài đặt về máy</button>
+          </div>
+          <div class="hero-note"><span class="mini-lock">◆</span> Miễn phí · Không cần tài khoản · Ưu tiên riêng tư</div>
+        </div>
+        <div class="hero-art" aria-label="Minh họa bàn cờ How2Chess">
+          <div class="art-glow"></div>
+          <div class="art-board" id="heroBoard" aria-hidden="true"></div>
+          <div class="art-float"><b>+0.35</b><span>WHITE ADVANTAGE</span></div>
+          <div class="art-chip"><span>✦</span> Best move <strong>Nf3</strong></div>
+        </div>
+        <div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
+      </div>
+      <div class="feature-row">
+        <article class="feature-card">
+          <span class="feature-icon blue">♞</span><div><h3>Tính nước đi bằng Stockfish</h3><p>Phân tích cục bộ trong Web Worker, có đánh giá, biến chính và nhiều mức sức mạnh.</p></div>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon gold">▦</span><div><h3>Thư viện thế cờ</h3><p>Lưu FEN, mở các khai cuộc và vị trí mẫu, rồi tiếp tục phân tích bất cứ lúc nào.</p></div>
+        </article>
+        <article class="feature-card">
+          <span class="feature-icon green">◉</span><div><h3>Dùng được offline</h3><p>Cài thành PWA. Sau lần tải đầu trên HTTPS, ứng dụng lưu bộ giao diện để dùng lại.</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="app-wrap wrap" id="app">
+      <div class="section-heading">
+        <div><span class="eyebrow eyebrow-soft">YOUR CHESS WORKSPACE</span><h2 id="screenTitle">Bàn phân tích</h2></div>
+        <button class="btn btn-soft btn-small" id="landingReturn" hidden>← Trang giới thiệu</button>
+      </div>
+
+      <nav class="navdock" aria-label="Điều hướng chính">
+        <button class="navtab active" data-screen="h2c" aria-current="page">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5 12 3l7 2.5v9L12 21l-7-6.5z"/><path d="M5 5.5 12 9l7-3.5M12 9v12M5 14.5l7-5.5 7 5.5"/></svg><span>H2C</span>
+        </button>
+        <button class="navtab" data-screen="library">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21z"/><path d="M4 5.5v13A2.5 2.5 0 0 1 6.5 16H20M8 7h8M8 10h7"/></svg><span>Library</span>
+        </button>
+        <button class="navtab" data-screen="options">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 14 4l2.1-.8 1.5 1.5-.8 2.1.8 2.1 2.1.8v2.1l-2.1.8-.8 2.1.8 2.1-1.5 1.5-2.1-.8-2.1.8-.8 2.1h-2.1l-.8-2.1-2.1-.8-2.1.8-1.5-1.5.8-2.1-.8-2.1-2.1-.8v-2.1l2.1-.8.8-2.1-.8-2.1 1.5-1.5 2.1.8L9.9 4l.8-.8z"/><circle cx="12" cy="12" r="3"/></svg><span>Options</span>
+        </button>
+      </nav>
+
+      <section class="screen active" id="screen-h2c" aria-labelledby="screenTitle">
+        <div class="board-layout">
+          <div class="board-column">
+            <article class="card board-card">
+              <div class="board-topline">
+                <div><span class="eyebrow eyebrow-soft">POSITION LAB</span><h3 id="boardName">Thế cờ mới</h3></div>
+                <button class="icon-btn menu-trigger" id="menuTrigger" aria-label="Mở menu bàn cờ">☰</button>
+              </div>
+              <div class="board-tools">
+                <div class="segmented" role="group" aria-label="Chế độ bàn cờ">
+                  <button class="segment active" id="builderMode">Dựng thế</button>
+                  <button class="segment" id="engineMode">Đấu với máy</button>
+                </div>
+                <div class="mini-status" id="turnStatus"><span class="turn-dot"></span><span>Trắng đi</span></div>
+              </div>
+              <div class="piece-tray black-tray" id="blackTray" aria-label="Khay quân đen"></div>
+              <div class="board-frame">
+                <div class="board-coords ranks" id="rankLabels" aria-hidden="true"></div>
+                <div class="board-grid" id="boardGrid" role="grid" aria-label="Bàn cờ 8 x 8"></div>
+                <div class="board-coords files" id="fileLabels" aria-hidden="true"></div>
+                <svg class="arrow-layer" id="arrowLayer" viewBox="0 0 800 800" aria-hidden="true"></svg>
+              </div>
+              <div class="piece-tray white-tray" id="whiteTray" aria-label="Khay quân trắng"></div>
+              <div class="board-hint" id="boardHint">Chọn quân trong khay rồi chạm ô để dựng thế cờ.</div>
+              <div class="board-controls">
+                <button class="btn btn-primary calculate-btn" id="calculateBtn"><span class="calc-spark">✦</span><span>Tính nước đi</span></button>
+                <button class="control-btn turn-control" id="turnBtn" aria-label="Đổi lượt đi" title="Đổi lượt đi"><span class="turn-icon">♙</span><span id="turnLabel">Trắng</span></button>
+                <button class="control-btn" id="undoBtn" aria-label="Hoàn tác" title="Hoàn tác"><svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 6 6"/></svg></button>
+                <button class="control-btn" id="redoBtn" aria-label="Làm lại" title="Làm lại"><svg viewBox="0 0 24 24"><path d="m15 7 5 5-5 5m5-5H10a6 6 0 0 0-6 6"/></svg></button>
+                <button class="control-btn menu-trigger" id="menuTrigger2" aria-label="Mở menu bàn cờ" title="Menu"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+              </div>
+              <div class="menu-popover" id="boardMenu" hidden>
+                <button data-action="flip">⤢ <span>Lật bàn cờ</span></button>
+                <button data-action="reset">↺ <span>Thế cờ gốc</span></button>
+                <button data-action="clear">⌫ <span>Xóa bàn cờ</span></button>
+                <div class="menu-divider"></div>
+                <button data-action="import-fen">⇩ <span>Nhập FEN</span></button>
+                <button data-action="export-fen">⇧ <span>Sao chép FEN</span></button>
+                <button data-action="import-pgn">⇩ <span>Nhập PGN</span></button>
+                <button data-action="export-pgn">⇧ <span>Xuất PGN</span></button>
+                <div class="menu-divider"></div>
+                <button data-action="save">＋ <span>Lưu vào Library</span></button>
+                <button data-action="share">↗ <span>Chia sẻ thế cờ</span></button>
+              </div>
+            </article>
+            <article class="card result-card" id="resultCard">
+              <div class="result-head"><div><span class="eyebrow eyebrow-soft">ENGINE INSIGHT</span><h3>Phân tích nước đi</h3></div><span class="eval-pill" id="evalPill">—</span></div>
+              <div class="engine-progress" id="engineProgress" hidden><span class="spinner"></span><span>Stockfish đang tính…</span><button class="text-btn" id="stopEngine">Dừng</button></div>
+              <div class="engine-error" id="engineError" hidden><span>Engine chưa khởi động được.</span><button class="text-btn" id="retryEngine">Thử lại</button></div>
+              <div class="eval-layout">
+                <div class="eval-track" aria-label="Thanh đánh giá"><div class="eval-black" id="evalBlack"></div><div class="eval-white" id="evalWhite"></div></div>
+                <div class="eval-copy"><strong id="evalScore">Chưa có đánh giá</strong><span id="evalMeta">Nhấn “Tính nước đi” để phân tích thế cờ.</span></div>
+              </div>
+              <p class="explanation" id="moveExplanation">Nước đi tốt nhất sẽ hiện tại đây cùng lời giải thích ngắn.</p>
+              <div class="pv-list" id="pvList"></div>
+            </article>
+          </div>
+          <aside class="side-column">
+            <article class="card side-card">
+              <div class="side-title"><span class="eyebrow eyebrow-soft">QUICK SETUP</span><h3>Dựng thế cờ</h3></div>
+              <p>Chạm quân để chọn, rồi chạm ô để đặt. Bạn cũng có thể kéo quân trên bàn để sắp xếp tự do.</p>
+              <div class="setup-actions"><button class="btn btn-soft" id="eraseModeBtn">⌫ Xóa quân</button><button class="btn btn-soft" id="clearBoardBtn">Dọn bàn</button></div>
+              <label class="field-label" for="boardTurnSelect">Lượt đi</label>
+              <select id="boardTurnSelect" class="select"><option value="w">Trắng đi</option><option value="b">Đen đi</option></select>
+              <div class="validation-box" id="validationBox"><span class="validation-dot"></span><span>Vị trí cần có đủ hai vua trước khi phân tích.</span></div>
+            </article>
+            <article class="card side-card engine-side">
+              <div class="side-title"><span class="eyebrow eyebrow-soft">ENGINE SETTINGS</span><h3>Đối thủ hiện tại</h3></div>
+              <div class="opponent-row"><div class="opponent-avatar">♚</div><div><strong id="opponentName">Stockfish</strong><span id="opponentLevel">Mức 1800 Elo</span></div><span class="online-dot" title="Chạy trên thiết bị"></span></div>
+              <div class="meter-row"><span>Sức mạnh ước tính</span><strong id="strengthLabel">Cao thủ</strong></div>
+              <div class="strength-meter"><i id="strengthMeter"></i></div>
+              <button class="btn btn-soft btn-full" id="goOptions">Tùy chỉnh engine <span>↗</span></button>
+            </article>
+            <article class="card side-card privacy-card"><span class="privacy-icon">⌑</span><div><strong>Riêng tư mặc định</strong><p>Ván cờ và cài đặt được lưu trong trình duyệt trên thiết bị này.</p></div></article>
+          </aside>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-library" aria-label="Library">
+        <div class="library-head">
+          <div><span class="eyebrow eyebrow-soft">YOUR POSITIONS</span><h2>Library</h2><p>Lưu trữ những thế cờ đáng nhớ và mở lại trong một chạm.</p></div>
+          <button class="btn btn-primary" id="newBoardBtn"><span>＋</span> Bàn cờ mới</button>
+        </div>
+        <div class="library-tools card">
+          <label class="searchbox"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.7"/><path d="m16 16 4.5 4.5"/></svg><input id="librarySearch" type="search" placeholder="Tìm tên bàn cờ…" aria-label="Tìm trong Library"></label>
+          <select id="libraryFilter" class="select filter-select" aria-label="Lọc Library"><option value="all">Tất cả</option><option value="mine">Của tôi</option><option value="sample">Khai cuộc mẫu</option></select>
+        </div>
+        <div class="library-section-head"><h3>Bàn cờ đã lưu</h3><span id="savedCount">0 vị trí</span></div>
+        <div class="library-list" id="libraryList"></div>
+        <div class="library-section-head sample-heading"><div><h3>Khai cuộc & thế cờ mẫu</h3><p>Chọn một vị trí để nạp vào bàn phân tích.</p></div><span class="sample-tag">CURATED</span></div>
+        <div class="sample-grid" id="sampleGrid"></div>
+        <div class="empty-state card" id="libraryEmpty" hidden><div class="empty-art"><div class="empty-grid"></div><span>♘</span></div><h3>Thư viện của bạn còn trống</h3><p>Lưu thế cờ đầu tiên để quay lại phân tích sau.</p><button class="btn btn-primary" id="emptyCreateBtn">Tạo bàn cờ đầu tiên</button></div>
+        <button class="floating-add" id="floatingAdd" aria-label="Tạo bàn cờ mới">＋</button>
+      </section>
+
+      <section class="screen" id="screen-options" aria-label="Options">
+        <div class="options-intro"><span class="eyebrow eyebrow-soft">MAKE IT YOURS</span><h2>Options</h2><p>Tinh chỉnh engine, cách hiển thị và giao diện của How2Chess.</p></div>
+        <div class="options-grid">
+          <div class="options-main">
+            <section class="option-group card">
+              <div class="group-heading"><div><span class="eyebrow eyebrow-soft">ANALYSIS</span><h3>Engine Strength</h3></div><span class="group-icon">✦</span></div>
+              <label class="field-label" for="analysisEngineSelect">Analysis engine / Engine phan tich</label>
+              <select id="analysisEngineSelect" class="select"><option value="stockfish">Stockfish search</option><option value="h2c">How2Chess AI (INT8, policy only)</option></select>
+              <div class="option-note">H2C AI ranks legal moves from its trained policy; it does not search ahead and has no measured Elo yet.</div>
+              <label class="slider-label" for="thinkTime"><span>Think time</span><strong><output id="thinkValue">3 giây</output></strong></label>
+              <input id="thinkTime" type="range" min="1" max="30" step="1" value="3">
+              <div class="range-scale"><span>1 giây</span><span>30 giây</span></div>
+              <label class="slider-label elo-label" for="eloRange"><span>Mức ELO mục tiêu</span><strong><output id="eloValue">1800 Elo</output></strong></label>
+              <input id="eloRange" type="range" min="800" max="3200" step="100" value="1800">
+              <div class="range-scale"><span>Người mới</span><span>Đại kiện tướng</span></div>
+              <div class="option-row compact-row"><div><strong>Độ sâu biến chính</strong><small>Hiện tối đa 3 nước ứng viên</small></div><select id="multiPv" class="select select-small"><option value="1">1 biến</option><option value="2">2 biến</option><option value="3">3 biến</option></select></div>
+              <div class="option-row compact-row"><div><strong>Threads</strong><small>Bản lite đơn luồng để chạy ổn định trên điện thoại</small></div><select class="select select-small" aria-label="Threads" disabled><option>1 luồng</option></select></div>
+              <div class="option-row compact-row"><div><strong>Hash memory</strong><small>Dung lượng bộ nhớ engine</small></div><select id="hashSize" class="select select-small"><option value="16">16 MB</option><option value="32">32 MB</option><option value="64">64 MB</option><option value="128">128 MB</option></select></div>
+              <div class="option-note">Bản lite chạy một luồng để tương thích điện thoại và GitHub Pages; tùy chọn Threads được cố định ở 1.</div>
+            </section>
+            <section class="option-group card">
+              <div class="group-heading"><div><span class="eyebrow eyebrow-soft">BOARD DISPLAY</span><h3>Display Options</h3></div><span class="group-icon">▤</span></div>
+              <div class="toggle-list">
+                <label class="toggle-row"><span><strong>SAN Notation</strong><small>Hiển thị biến bằng ký hiệu cờ</small></span><input type="checkbox" id="sanToggle"><i class="switch"></i></label>
+                <label class="toggle-row"><span><strong>Show Board Name</strong><small>Hiện tên thế cờ trên bàn</small></span><input type="checkbox" id="nameToggle"><i class="switch"></i></label>
+                <label class="toggle-row"><span><strong>Automatically Execute Move</strong><small>Tự đi nước tốt nhất sau khi tính</small></span><input type="checkbox" id="autoToggle"><i class="switch"></i></label>
+                <label class="toggle-row"><span><strong>Show Engine Score</strong><small>Hiện điểm đánh giá và thanh lợi thế</small></span><input type="checkbox" id="scoreToggle" checked><i class="switch"></i></label>
+              </div>
+            </section>
+            <section class="option-group card">
+              <div class="group-heading"><div><span class="eyebrow eyebrow-soft">RULES</span><h3>Castling Availability</h3></div><span class="group-icon">♜</span></div>
+              <div class="toggle-list castling-list">
+                <label class="toggle-row"><span><strong>White / kingside</strong><small>Nhập thành gần cho Trắng</small></span><input type="checkbox" data-castle="K" checked><i class="switch"></i></label>
+                <label class="toggle-row"><span><strong>White / queenside</strong><small>Nhập thành xa cho Trắng</small></span><input type="checkbox" data-castle="Q" checked><i class="switch"></i></label>
+                <label class="toggle-row"><span><strong>Black / kingside</strong><small>Nhập thành gần cho Đen</small></span><input type="checkbox" data-castle="k" checked><i class="switch"></i></label>
+                <label class="toggle-row"><span><strong>Black / queenside</strong><small>Nhập thành xa cho Đen</small></span><input type="checkbox" data-castle="q" checked><i class="switch"></i></label>
+              </div>
+            </section>
+          </div>
+          <div class="options-side">
+            <section class="option-group card">
+              <div class="group-heading"><div><span class="eyebrow eyebrow-soft">PERSONALIZE</span><h3>Appearance</h3></div><span class="group-icon">◐</span></div>
+              <label class="field-label" for="themeSelect">Giao diện</label><select id="themeSelect" class="select"><option value="system">Theo hệ thống</option><option value="light">Sáng</option><option value="dark">Tối</option></select>
+              <label class="field-label" for="boardTheme">Bảng màu bàn cờ</label><select id="boardTheme" class="select"><option value="sage">Sage & cream</option><option value="blue">Blue hour</option><option value="wood">Warm wood</option></select>
+              <label class="field-label" for="pieceTheme">Bộ quân</label><select id="pieceTheme" class="select"><option value="classic">Classic outline</option><option value="minimal">Minimal</option></select>
+              <label class="toggle-row"><span><strong>Hiệu ứng chuyển động</strong><small>Tôn trọng chế độ giảm chuyển động</small></span><input type="checkbox" id="motionToggle" checked><i class="switch"></i></label>
+              <label class="field-label" for="languageSelect">Ngôn ngữ / Language</label><select id="languageSelect" class="select"><option value="vi">Tiếng Việt</option><option value="en">English</option></select>
+            </section>
+            <section class="option-group card resources-group">
+              <div class="group-heading"><div><span class="eyebrow eyebrow-soft">ABOUT & DATA</span><h3>Resources</h3></div><span class="group-icon">↗</span></div>
+              <button class="resource-row" data-resource="changelog"><span>Changelog<small>Phiên bản 1.0.0</small></span><b>›</b></button>
+              <button class="resource-row" data-resource="feedback"><span>Feedback & Support<small>Gửi góp ý cho How2Chess</small></span><b>›</b></button>
+              <button class="resource-row" data-resource="license"><span>License<small>Stockfish · chess.js · bộ quân</small></span><b>›</b></button>
+              <button class="resource-row" data-resource="terms"><span>Terms of Service<small>Điều khoản sử dụng</small></span><b>›</b></button>
+              <button class="resource-row" data-resource="privacy"><span>Privacy Policy<small>Dữ liệu lưu trên thiết bị</small></span><b>›</b></button>
+              <button class="resource-row" data-resource="about"><span>Về How2Chess<small>Chess Calculator · v1.0.0</small></span><b>›</b></button>
+            </section>
+            <section class="option-group card data-group">
+              <div class="group-heading"><div><span class="eyebrow eyebrow-soft">BACKUP</span><h3>Library data</h3></div><span class="group-icon">⇄</span></div>
+              <p class="muted-text">Xuất bản sao JSON hoặc nhập dữ liệu từ tệp How2Chess.</p>
+              <div class="data-actions"><button class="btn btn-soft" id="exportDataBtn">Xuất JSON</button><button class="btn btn-soft" id="importDataBtn">Nhập JSON</button></div>
+              <input type="file" id="importFile" accept="application/json,.json" hidden>
+              <button class="btn btn-danger btn-full" id="clearDataBtn">Xóa toàn bộ dữ liệu</button>
+            </section>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="site-footer wrap"><span>© 2026 How2Chess</span><span><a href="#privacy" data-resource="privacy">Privacy</a><a href="#terms" data-resource="terms">Terms</a><a href="https://github.com/official-stockfish/Stockfish" target="_blank" rel="noreferrer">Stockfish</a></span></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-backdrop" id="modalBackdrop" hidden><section class="modal card" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><button class="modal-close" id="modalClose" aria-label="Đóng">×</button><span class="eyebrow eyebrow-soft">HOW2CHESS</span><h2 id="modalTitle"></h2><div class="modal-body" id="modalBody"></div><div class="modal-actions" id="modalActions"></div></section></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js" crossorigin="anonymous"></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>

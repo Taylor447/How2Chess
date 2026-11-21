@@ -1,0 +1,15 @@
+{
+  "name": "how2chess",
+  "version": "1.0.0",
+  "private": true,
+  "description": "How2Chess PWA — static chess calculator",
+  "scripts": {
+    "setup:onnx": "node scripts/copy-onnx-runtime.mjs",
+    "prebuild:web": "node scripts/copy-onnx-runtime.mjs",
+    "build:web": "node scripts/copy-web.mjs",
+    "serve": "node scripts/serve.mjs"
+  },
+  "dependencies": {
+    "onnxruntime-web": "1.31.1"
+  }
+}
