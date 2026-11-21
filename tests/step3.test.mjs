@@ -5,6 +5,7 @@ import { test } from "node:test";
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app.css", import.meta.url), "utf8");
 const app = readFileSync(new URL("../app.js", import.meta.url), "utf8");
+const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
 
 test("Coach can be toggled on the board and from its own route", () => {
   assert.ok(html.includes('id="coachToggle"'));
@@ -52,4 +53,8 @@ test("Coach move hints and labels are styled for the shared responsive interface
   assert.match(css, /\.coach-board-hint\s*\{/);
   assert.match(css, /@media\(max-width:720px\)/);
   assert.ok(html.includes('id="coachBoardHint"'));
+});
+
+test("PWA cache version changes so installed clients fetch the Coach update", () => {
+  assert.match(sw, /const CACHE_NAME = "how2chess-v3"/);
 });

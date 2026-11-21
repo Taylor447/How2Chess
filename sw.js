@@ -1,5 +1,5 @@
 "use strict";
-const CACHE_NAME = "how2chess-v2";
+const CACHE_NAME = "how2chess-v3";
 const LOCAL_ASSETS = [
   "./",
   "./index.html",
