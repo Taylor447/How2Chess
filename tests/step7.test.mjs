@@ -9,11 +9,12 @@ const license = readFileSync(new URL("../LICENSES.md", import.meta.url), "utf8")
 const chess = readFileSync(new URL("../vendor/chess/chess.js", import.meta.url), "utf8");
 
 test("chess.js is local and does not block the How2Chess UI on a third-party CDN", () => {
-  assert.match(html, /<script src="\\.\\/vendor\\/chess\\/chess\\.js" defer><\\/script>/);
-  assert.doesNotMatch(html, /cdnjs\\.cloudflare\\.com\\/ajax\\/libs\\/chess\\.js/);
-  assert.match(sw, /\\.\\/vendor\\/chess\\/chess\\.js/);
-  assert.doesNotMatch(sw, /cdnjs\\.cloudflare\\.com\\/ajax\\/libs\\/chess\\.js/);
-  assert.match(build, /"vendor\\/chess"/);
-  assert.match(license, /vendor\\/chess\\/LICENSE/);
-  assert.match(chess, /Copyright \\(c\\) 2020, Jeff Hlywa/);
+  assert.ok(html.includes('<script src="./vendor/chess/chess.js" defer></script>'));
+  assert.ok(!html.includes("cdnjs.cloudflare.com/ajax/libs/chess.js"));
+  assert.ok(sw.includes("./vendor/chess/chess.js"));
+  assert.ok(!sw.includes("cdnjs.cloudflare.com/ajax/libs/chess.js"));
+  assert.ok(build.includes('"vendor/chess"'));
+  assert.ok(license.includes("vendor/chess/LICENSE"));
+  assert.ok(chess.includes("Copyright (c) 2020, Jeff Hlywa"));
 });
+
