@@ -52,7 +52,7 @@
   let sideDrawerOpen = false;
   let sideTouchStartX = null;
   const BOT_CATALOG = [{"id":"mai-nang","name":"Mai Nắng","elo":250,"personality":"Tập đi quân căn bản, hay bỏ sót quân bị ăn.","randomRate":0.7,"alternateRate":0.18,"nameEn":"Mai Sunrise","personalityEn":"Learning the basics; often overlooks a loose piece."},{"id":"tot-cham","name":"Tốt Chậm","elo":350,"personality":"Thích đẩy tốt, đôi khi quên bảo vệ vua.","randomRate":0.63,"alternateRate":0.18,"nameEn":"Slow Pawn","personalityEn":"Likes pawn pushes and can forget king safety."},{"id":"ve-binh","name":"Vệ Binh","elo":500,"personality":"Phòng thủ chắc tay nhưng ít phản công.","randomRate":0.52,"alternateRate":0.18,"nameEn":"Guardian","personalityEn":"Defends patiently but rarely counterattacks."},{"id":"bao-tap","name":"Bão Táp","elo":650,"personality":"Ưa tấn công nhanh, có lúc lao lên quá sớm.","randomRate":0.43,"alternateRate":0.2,"nameEn":"Storm Chaser","personalityEn":"Attacks quickly and sometimes overcommits."},{"id":"ma-lem-linh","name":"Mã Lém Lỉnh","elo":800,"personality":"Tìm đòn mã thú vị, đôi khi bỏ qua nước đơn giản.","randomRate":0.34,"alternateRate":0.21,"nameEn":"Tricky Knight","personalityEn":"Looks for knight tricks and may miss a simple move."},{"id":"phao-dai","name":"Pháo Đài","elo":950,"personality":"Ưu tiên an toàn và đổi quân.","randomRate":0.27,"alternateRate":0.19,"nameEn":"Fortress","personalityEn":"Prefers safety and simplifying the position."},{"id":"trung-tam","name":"Trung Tâm","elo":1100,"personality":"Tranh chấp trung tâm, chơi cân bằng.","randomRate":0.21,"alternateRate":0.18,"nameEn":"Center Control","personalityEn":"Fights for central squares with balanced play."},{"id":"doi-tuong","name":"Đôi Tượng","elo":1250,"personality":"Kiên nhẫn giữ cặp tượng và đường chéo.","randomRate":0.16,"alternateRate":0.17,"nameEn":"Bishop Pair","personalityEn":"Values the bishop pair and open diagonals."},{"id":"tan-cuoc","name":"Tàn Cuộc","elo":1400,"personality":"Chuyển sang tàn cuộc khá bình tĩnh.","randomRate":0.11,"alternateRate":0.15,"nameEn":"Endgame Planner","personalityEn":"Stays calm when the game reaches an endgame."},{"id":"chien-thuat","name":"Chiến Thuật","elo":1550,"personality":"Hay nhìn thấy ghim và đòn đôi.","randomRate":0.085,"alternateRate":0.14,"nameEn":"Tactician","personalityEn":"Looks for pins and forks."},{"id":"ky-luat","name":"Kỷ Luật","elo":1700,"personality":"Chơi có kế hoạch, ít tự làm yếu vua.","randomRate":0.06,"alternateRate":0.12,"nameEn":"Disciplined","personalityEn":"Follows a plan and keeps the king safe."},{"id":"gambit","name":"Gambit","elo":1850,"personality":"Sẵn sàng thí tốt để giành thế chủ động.","randomRate":0.045,"alternateRate":0.11,"nameEn":"Gambit","personalityEn":"May sacrifice a pawn for initiative."},{"id":"don-doi","name":"Đòn Đôi","elo":2000,"personality":"Tìm nước ép buộc và chiến thuật ngắn.","randomRate":0.032,"alternateRate":0.09,"nameEn":"Double Attack","personalityEn":"Looks for forcing tactics and short combinations."},{"id":"dai-kien-tuong","name":"Đại Kiện Tướng","elo":2200,"personality":"Ưu tiên nước chính xác, xử lý tốt vị trí mở.","randomRate":0.022,"alternateRate":0.07,"nameEn":"Grandmaster","personalityEn":"Seeks accurate moves in open positions."},{"id":"co-dien","name":"Kỳ Thủ Cổ Điển","elo":2350,"personality":"Chơi nguyên tắc và tích lũy lợi thế nhỏ.","randomRate":0.014,"alternateRate":0.05,"nameEn":"Classical","personalityEn":"Builds small advantages with principled play."},{"id":"bong-dem","name":"Bóng Đêm","elo":2500,"personality":"Đối thủ mạnh nhất trong danh sách.","randomRate":0.008,"alternateRate":0.035,"nameEn":"Shadow","personalityEn":"The toughest opponent in this local roster."}];
-  let selectedBotId = "trung-tam", botPlayerColor = "w", botClockChoice = "10+0";
+  let selectedBotId = "trung-tam", botPlayerColor = "w", botClockChoice = "10+0", historyFilter = "all";
   let botAllowUndo = true, botShowHints = true, botShowEval = true, botMatch = null, botClockTimer = null;
   let savedGames = parseJSON(store.get("h2c-game-history","[]"), []);
   if (!Array.isArray(savedGames)) savedGames = [];
@@ -391,13 +391,16 @@
   function renderHistoryRoute(searchOverride) {
     const host=$("#featureRouteBody");if(!host)return;
     const en=settings.language==="en",query=String(searchOverride??(host.querySelector("#historySearch")?.value||"")).toLowerCase();
-    const filtered=savedGames.filter(game=>((game.botName||"")+" "+(game.result||"")+" "+(game.pgn||"")).toLowerCase().includes(query));
+    const filtered=savedGames.filter(game=>{
+      const text=((game.botName||"")+" "+(game.result||"")+" "+(game.pgn||"")).toLowerCase();
+      return text.includes(query)&&(historyFilter==="all"||game.result===historyFilter);
+    });
     const rows=filtered.map(game=>{
       const resultText=en?({win:"Win",draw:"Draw",loss:"Loss"}[game.result]||"Saved") :({win:"Thắng",draw:"Hòa",loss:"Thua"}[game.result]||"Đã lưu");
       const date=new Date(game.date).toLocaleDateString(en?"en-US":"vi-VN",{year:"numeric",month:"short",day:"numeric"});
       return '<article class="card history-row"><div class="history-result '+escapeHtml(game.result||"draw")+'">'+(game.result==="win"?"W":game.result==="loss"?"L":"½")+'</div><div class="history-copy"><strong>'+(en?"vs ":"đấu với ")+escapeHtml(game.botName||"Bot")+' · '+resultText+'</strong><span>'+date+' · '+(game.moveCount||0)+' '+(en?"plies":"nửa nước")+' · '+(game.botElo||"—")+' Elo</span></div><div class="history-actions"><button class="btn btn-soft" type="button" data-open-game="'+game.id+'">'+(en?"Review":"Xem lại")+'</button><button class="icon-btn" type="button" data-delete-game="'+game.id+'" aria-label="'+(en?"Delete game":"Xóa ván")+'">×</button></div></article>';
     }).join("");
-    host.innerHTML='<section class="card history-toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="historySearch" type="search" placeholder="'+(en?"Search games":"Tìm ván đấu")+'" value="'+escapeHtml(query)+'"></label><button class="btn btn-soft" type="button" data-export-pgn '+(savedGames.length?"":"disabled")+'>'+(en?"Export PGN":"Xuất PGN")+'</button></section><div class="history-list">'+(rows||'<article class="card empty-feature"><span class="empty-feature-icon">'+routeIconSVG("history")+'</span><h3>'+(en?"No saved games yet":"Chưa có ván nào")+'</h3><p>'+(en?"Finished bot games appear here automatically.":"Ván đấu với bot sẽ tự lưu tại đây khi kết thúc.")+'</p><a class="btn btn-primary" href="#/bot">'+(en?"Choose a bot":"Chọn bot")+'</a></article>')+'</div>';
+    host.innerHTML='<section class="card history-toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="historySearch" type="search" placeholder="'+(en?"Search games":"Tìm ván đấu")+'" value="'+escapeHtml(query)+'"></label><select id="historyFilter" aria-label="'+(en?"Filter games":"Lọc ván")+'"><option value="all"'+(historyFilter==="all"?" selected":"")+'>'+(en?"All results":"Tất cả")+'</option><option value="win"'+(historyFilter==="win"?" selected":"")+'>'+(en?"Wins":"Thắng")+'</option><option value="draw"'+(historyFilter==="draw"?" selected":"")+'>'+(en?"Draws":"Hòa")+'</option><option value="loss"'+(historyFilter==="loss"?" selected":"")+'>'+(en?"Losses":"Thua")+'</option></select><input id="historyPgnFile" type="file" accept=".pgn,text/plain" hidden><button class="btn btn-soft" type="button" data-import-pgn>'+(en?"Import PGN":"Nhập PGN")+'</button><button class="btn btn-soft" type="button" data-export-pgn '+(savedGames.length?"":"disabled")+'>'+(en?"Export PGN":"Xuất PGN")+'</button></section><div class="pgn-dropzone">'+(en?"Drop a .pgn file here to import":"Kéo thả tệp .pgn vào đây để nhập")+'</div><div class="history-list">'+(rows||'<article class="card empty-feature"><span class="empty-feature-icon">'+routeIconSVG("history")+'</span><h3>'+(en?"No saved games yet":"Chưa có ván nào")+'</h3><p>'+(en?"Finished bot games appear here automatically.":"Ván đấu với bot sẽ tự lưu tại đây khi kết thúc.")+'</p><a class="btn btn-primary" href="#/bot">'+(en?"Choose a bot":"Chọn bot")+'</a></article>')+'</div>';
   }
   function renderRatingChart(games) {
     const points=games.slice().reverse().slice(-12);
@@ -567,6 +570,22 @@
     const blob=new Blob([text],{type:type||"text/plain;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
     a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
+  async function importPgnFile(file) {
+    if(!file||!C)return;
+    try{
+      const pgn=await file.text(),game=new C();
+      if(typeof game.load_pgn!=="function"||!game.load_pgn(pgn)){pushToast(settings.language==="en"?"This PGN file could not be read.":"Không đọc được tệp PGN này.");return;}
+      const moves=game.history({verbose:true}).map(move=>({san:move.san,from:move.from,to:move.to,promotion:move.promotion||"",color:move.color}));
+      const headers=(pgn.match(/\[([A-Za-z]+)\s+"([^"]*)"\]/g)||[]).reduce((out,line)=>{const m=line.match(/^\[([A-Za-z]+)\s+"([^"]*)"\]$/);if(m)out[m[1]]=m[2];return out;},{});
+      const rawResult=headers.Result||"1/2-1/2",result=rawResult==="1-0"?"win":rawResult==="0-1"?"loss":"draw";
+      const opponent=headers.Black&&headers.Black!=="?"?headers.Black:"PGN import";
+      const dateText=(headers.Date||"").replace(/\./g,"-");
+      const parsedDate=/^\d{4}-\d{2}-\d{2}$/.test(dateText)?new Date(dateText).toISOString():new Date().toISOString();
+      const imported={id:(window.crypto&&crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),date:parsedDate,botId:"import",botName:opponent,botElo:0,playerColor:"w",result:result,reason:"import",moves:moves,moveCount:moves.length,startFen:START_FEN,finalFen:game.fen(),ratingBefore:playerRating,ratingAfter:playerRating,accuracy:null,pgn:pgn};
+      savedGames.unshift(imported);savedGames=savedGames.slice(0,2000);persistGameHistory();renderHistoryRoute();
+      pushToast(settings.language==="en"?"PGN game imported.":"Đã nhập ván PGN.");
+    }catch(_){pushToast(settings.language==="en"?"Could not import this PGN file.":"Không thể nhập tệp PGN này.");}
+  }
   function exportSavedPgn() {
     if(!savedGames.length)return;
     downloadTextFile("how2chess-games.pgn",savedGames.slice().reverse().map(game=>game.pgn||createGamePgn(game)).join("\n"),"application/x-chess-pgn;charset=utf-8");
@@ -587,9 +606,12 @@
       return;
     }
     if(event.target.closest("[data-export-pgn]")){exportSavedPgn();return;}
+    if(event.target.closest("[data-import-pgn]")){$("#historyPgnFile").click();return;}
   }
   function handleFeatureChange(event) {
     const target=event.target;
+    if(target.id==="historyPgnFile"){importPgnFile(target.files?.[0]);return;}
+    if(target.id==="historyFilter"){historyFilter=target.value;renderHistoryRoute();return;}
     if(target.id==="botColorChoice")botPlayerColor=target.value;
     else if(target.id==="botClockChoice")botClockChoice=target.value;
     else if(target.id==="botUndoChoice")botAllowUndo=target.checked;
@@ -1175,6 +1197,9 @@
     $("#routeHome").addEventListener("click",()=>setScreen("h2c",true));
     $("#featureRouteBody").addEventListener("click",handleFeatureClick);
     $("#featureRouteBody").addEventListener("change",handleFeatureChange);
+    $("#featureRouteBody").addEventListener("dragover",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.types?.includes("Files")){event.preventDefault();$("#featureRouteBody").classList.add("drag-over");}});
+    $("#featureRouteBody").addEventListener("dragleave",event=>{if(!$("#featureRouteBody").contains(event.relatedTarget))$("#featureRouteBody").classList.remove("drag-over");});
+    $("#featureRouteBody").addEventListener("drop",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.files?.length){event.preventDefault();$("#featureRouteBody").classList.remove("drag-over");importPgnFile(event.dataTransfer.files[0]);}});
     $("#featureRouteBody").addEventListener("input",event=>{if(event.target.id==="historySearch"){const value=event.target.value,start=event.target.selectionStart;renderHistoryRoute(value);const input=$("#historySearch");input?.focus();input?.setSelectionRange(start,start);}});
     $("#drawerNavigation").addEventListener("click",event=>{
       const link=event.target.closest("[data-route]");if(!link)return;

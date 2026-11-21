@@ -37,6 +37,9 @@ test("history is stored in IndexedDB with a localStorage fallback and can export
   assert.match(app, /indexedDB\.open\("How2ChessLocal",1\)/);
   assert.match(app, /store\.set\("h2c-game-history"/);
   assert.match(app, /function exportSavedPgn\(\)/);
+  assert.match(app, /function importPgnFile\(/);
+  assert.match(app, /id="historyFilter"/);
+  assert.match(app, /pgn-dropzone/);
   assert.ok(html.includes('id="featureRouteBody"'));
 });
 
