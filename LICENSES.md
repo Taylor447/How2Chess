@@ -3,7 +3,7 @@
 - **Stockfish / Stockfish.js**: Stockfish engine code is licensed under GNU General Public License version 3 (GPL-3.0). Stockfish.js browser builds are distributed by the nmrugg/stockfish.js project and include the engine. If you redistribute an application containing the engine, provide the applicable copyright/license notices and comply with GPLv3 source distribution requirements.
   - https://github.com/nmrugg/stockfish.js
   - https://github.com/official-stockfish/Stockfish
-- **chess.js 0.10.3**: loaded from cdnjs at runtime. Preserve the upstream license and notices when vendoring or redistributing that library.
+- **chess.js 0.10.3**: bundled locally at `vendor/chess/chess.js` so the interface can start without a third-party CDN. Upstream license is included at `vendor/chess/LICENSE`.
   - https://github.com/jhlywa/chess.js
   - https://cdnjs.com/libraries/chess.js
 - **chessops 0.15.1**: loaded as a pinned browser module from esm.sh for variant move validation. chessops is licensed under GNU GPL version 3 or later. If you redistribute an application containing this module, provide the source and notices required by GPL-3.0-or-later.

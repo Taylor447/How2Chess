@@ -15,7 +15,8 @@ const files = [
   "manifest.webmanifest",
   "icons",
   "models",
-  "vendor/onnxruntime-web"
+  "vendor/onnxruntime-web",
+  "vendor/chess"
 ];
 
 await rm(output, { recursive: true, force: true });
