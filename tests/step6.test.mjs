@@ -54,6 +54,6 @@ test("Events export .ics reminders, H2C TV uses TV routes, and streamer links op
 test("Follow code is included in the app shell, build, and updated PWA cache",()=>{
   assert.match(html,/\.\/follow-service\.js/);
   assert.match(build,/"follow-service\.js"/);
-  assert.match(sw,/how2chess-v6/);
+  assert.match(sw,/how2chess-v7/);
   assert.match(sw,/\.\/follow-service\.js/);
 });
