@@ -82,6 +82,8 @@ Stockfish searches in a dedicated worker and the interface remains responsive. T
 
 See LICENSES.md before redistributing a build. Stockfish.js contains GPLv3 engine code; comply with GPLv3 when you distribute a bundled engine. chess.js 0.10.3 is provided by cdnjs and is distributed under its upstream BSD-style license. The original How2Chess UI, board illustrations, and inline piece artwork are project code.
 
+The optional puzzle CSV import uses the public Lichess puzzle database, released under CC0. Download the CSV archive from [database.lichess.org](https://database.lichess.org/#puzzles), decompress it to CSV, then choose a 100,000 or 300,000 puzzle import limit in the Puzzle Library. The browser reads rows as a stream and stores accepted puzzles in IndexedDB. The Daily Puzzle requests the public [Lichess daily puzzle API](https://lichess.org/api/puzzle/daily), caches the response locally, and uses a deterministic local puzzle when offline. How2Chess is independent and is not affiliated with Lichess.
+
 ## Suggested next upgrades
 
 - PGN game review with move-by-move accuracy and blunder explanations.
