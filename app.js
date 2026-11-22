@@ -117,7 +117,7 @@
     "T?t kh�ng th? d?ng ? h�ng 1 ho?c 8.":"Pawns cannot be on rank 1 or 8.","Hai vua kh�ng th? d?ng c?nh nhau.":"Kings cannot stand on adjacent squares.",
     "Hai vua c�ng l�c b? chi?u - v? tr� kh�ng h?p l?.":"Both kings cannot be in check at the same time.",
     "T�nh nu?c di":"Calculate","Ph�n t�ch nu?c di":"Move analysis","ENGINE INSIGHT":"ENGINE INSIGHT",
-    "Chua c� d�nh gi�":"No evaluation yet","Nh?n "T�nh nu?c di" d? ph�n t�ch th? c?.":"Press "Calculate" to analyze this position.",
+    "Chua c� d�nh gi�":"No evaluation yet","Nhấn \"Tính nước đi\" để phân tích thế cờ.":"Press \"Calculate\" to analyze this position.",
     "Nu?c di t?t nh?t s? hi?n t?i d�y c�ng l?i gi?i th�ch ng?n.":"The best move and a short explanation will appear here.",
     "Stockfish dang t�nh.":"Stockfish is thinking.","D?ng":"Stop","Th? l?i":"Try again",
     "D?ng th? c?":"Set up a position","Ch?m qu�n d? ch?n, r?i ch?m � d? d?t. B?n cung c� th? k�o qu�n tr�n b�n d? s?p x?p t? do.":"Tap a piece, then a square to place it. You can also drag pieces around the board.",
@@ -145,7 +145,7 @@
     "Nh?p FEN":"Import FEN","Sao ch�p FEN":"Copy FEN","Nh?p PGN":"Import PGN","Xu?t PGN":"Export PGN",
     "Luu v�o Library":"Save to Library","Chia s? th? c?":"Share position","M? tr�n b�n c?":"Open on board","D?i t�n":"Rename","Nh�n b?n":"Duplicate","X�a":"Delete",
     "Feedback & Support":"Feedback & Support","License":"License","V? How2Chess":"About How2Chess","Changelog":"Changelog","D�ng":"Close","H?y":"Cancel","Luu":"Save",
-    "Nh?n "T�nh nu?c di" d? ph�n t�ch th? c?.":"Press "Calculate" to analyze this position.","Nh?n "T�nh nu?c di" d? ph�n t�ch th? c?.":"Press "Calculate" to analyze this position.",
+    "Nhấn \"Tính nước đi\" để phân tích thế cờ.":"Press \"Calculate\" to analyze this position.","Nhấn \"Tính nước đi\" để phân tích thế cờ.":"Press \"Calculate\" to analyze this position.",
     "C?n t?i chess.js":"chess.js required","Engine chua t?i":"Engine not loaded","Stockfish s?n s�ng":"Stockfish ready","T?i Stockfish.":"Loading Stockfish.","Engine c?n k?t n?i":"Engine needs a connection",
     "Ngu?i m?i":"Beginner","CLB":"Club player","D?i ki?n tu?ng":"Grandmaster","Si�u d?i ki?n tu?ng":"Super GM",
     "Vua c?a b�n v?a di kh�ng th? v?n dang b? chi?u.":"The king of the side that just moved cannot remain in check.",
@@ -342,7 +342,7 @@
   function renderEvaluation() {
     const pill=$("#evalPill"),score=$("#evalScore"),meta=$("#evalMeta"),white=$("#evalWhite");
     if(!settings.showScore){$(".eval-layout").hidden=true;return;}$(".eval-layout").hidden=false;
-    if(!lastEvaluation){pill.textContent="-";score.textContent=tr("Chua c� d�nh gi�");meta.textContent=tr("Nh?n "T�nh nu?c di" d? ph�n t�ch th? c?.");white.style.height="50%";$("#evalBlack").style.height="50%";return;}
+    if(!lastEvaluation){pill.textContent="-";score.textContent=tr("Chua c� d�nh gi�");meta.textContent=tr("Nhấn \"Tính nước đi\" để phân tích thế cờ.");white.style.height="50%";$("#evalBlack").style.height="50%";return;}
     const e=lastEvaluation;
     if(Array.isArray(e.wdl)&&e.wdl.length===3){
       const [loss,draw,win]=e.wdl, expectedWhite=e.turn==="w"?win+draw*0.5:loss+draw*0.5;
@@ -1616,7 +1616,7 @@
     const item={id:existing?existing.id:"board-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7),name:(name||boardName||"Th? c? chua d?t t�n").trim(),fen:boardFen(),updatedAt:new Date().toISOString(),eval:lastEvaluation?scoreText(lastEvaluation):null,source:"mine"};
     const index=savedBoards.findIndex(x=>x.id===item.id);
     if(index>=0)savedBoards[index]=item;else savedBoards.unshift(item);
-    boardName=item.name;openItemId=item.id;persistLibrary();renderAll();renderLibrary();pushToast("Da luu ""+item.name+"" v�o Library.");
+    boardName=item.name;openItemId=item.id;persistLibrary();renderAll();renderLibrary();pushToast("Đã lưu \""+item.name+"\" vào Library.");
   }
   function scoreText(e){if(Array.isArray(e.wdl))return "WDL "+e.wdl.map(v=>Math.round(v*100)+"%").join("/");return e.mate!==null?"M"+Math.abs(e.mate):(e.white>=0?"+":"")+(e.white/100).toFixed(2);}
   function copyText(text,message) {
@@ -1644,7 +1644,7 @@
   function installApp() {
     if(installPrompt){installPrompt.prompt();installPrompt.userChoice.finally(()=>{installPrompt=null;});}
     else if(navigator.standalone||matchMedia("(display-mode: standalone)").matches)pushToast("How2Chess da du?c c�i tr�n thi?t b? n�y.");
-    else pushToast("M? menu tr�nh duy?t r?i ch?n "C�i d?t ?ng d?ng" ho?c "Th�m v�o m�n h�nh ch�nh".");
+    else pushToast("Mở menu trình duyệt rồi chọn \"Cài đặt ứng dụng\" hoặc \"Thêm vào màn hình chính\".");
   }
 
   function miniBoardHTML(fen) {
@@ -1674,7 +1674,7 @@
     translateDocument();
   }
   function openSaved(item) {
-    try{setFromFen(item.fen,false);boardName=item.name||"Th? c? da luu";openItemId=item.id;mode="builder";lastEvaluation=null;bestMove=null;renderAll();setScreen("h2c",true);pushToast("Da m? ""+boardName+"".");}
+    try{setFromFen(item.fen,false);boardName=item.name||"Thế cờ đã lưu";openItemId=item.id;mode="builder";lastEvaluation=null;bestMove=null;renderAll();setScreen("h2c",true);pushToast("Đã mở \""+boardName+"\".");}
     catch(_){pushToast("Kh�ng d?c du?c FEN da luu.");}
   }
   function showModal(title,html,buttons) {
@@ -1718,7 +1718,7 @@
       feedback:"<p>How2Chess l� b? ma ngu?n tinh ch?y tr�n thi?t b? c?a b?n. Hay ghi l?i tr�nh duy?t, thi?t b? v� c�c bu?c khi?n l?i xu?t hi?n d? ti?n x? ly khi b?n luu ma ngu?n l�n GitHub.</p><p>Kh�ng c� bi?u m?u hay t�i kho?n g?i ph?n h?i trong b?n n�y.</p>",
       license:"<p><strong>Stockfish.js</strong> uses GPL-3.0. See LICENSES.md for source links and redistribution terms.</p><p><strong>chess.js 0.10.3</strong> uses BSD-2-Clause.</p><p>Custom piece SVGs are CC0 1.0.</p>",
       terms:"<p>How2Chess cung c?p c�ng c? ph�n t�ch v� h?c c? d? tham kh?o. Engine c� th? dua ra d�nh gi� kh�c nhau theo phi�n b?n, th?i gian t�nh v� thi?t b?; k?t qu? kh�ng ph?i ch?ng nh?n hay l?i khuy�n chuy�n m�n.</p><p>B?n ch?u tr�ch nhi?m tu�n th? gi?y ph�p c?a c�c th�nh ph?n b�n th? ba khi ch?nh s?a, ph�n ph?i ho?c d�ng g�i ?ng d?ng.</p>",
-      privacy:"<p>Library, c�i d?t v� d? li?u c?c b? du?c luu trong localStorage c?a tr�nh duy?t tr�n thi?t b? n�y. How2Chess kh�ng c� backend, t�i kho?n ho?c d?ch v? d?ng b?.</p><p>?ng d?ng t?i chess.js v� Stockfish.js t? CDN khi c?n engine. C�c nu?c c? v� th? c? kh�ng du?c g?i d?n m�y ch? d? ph�n t�ch. Sau l?n t?i d?u, service worker c? g?ng luu ?ng d?ng c�ng engine d? d�ng l?i khi offline tr�n HTTPS/localhost.</p><p>X�a d? li?u tr�nh duy?t ho?c d�ng "X�a to�n b? d? li?u" d? g? d? li?u da luu.</p>",
+      privacy:"<p>Library, c�i d?t v� d? li?u c?c b? du?c luu trong localStorage c?a tr�nh duy?t tr�n thi?t b? n�y. How2Chess kh�ng c� backend, t�i kho?n ho?c d?ch v? d?ng b?.</p><p>?ng d?ng t?i chess.js v� Stockfish.js t? CDN khi c?n engine. C�c nu?c c? v� th? c? kh�ng du?c g?i d?n m�y ch? d? ph�n t�ch. Sau l?n t?i d?u, service worker c? g?ng luu ?ng d?ng c�ng engine d? d�ng l?i khi offline tr�n HTTPS/localhost.</p><p>X�a d? li?u tr�nh duy?t ho?c d�ng \"Xóa toàn bộ dữ liệu\" d? g? d? li?u da luu.</p>",
       about:"<p><strong>How2Chess - Chess Calculator</strong><br>Phi�n b?n 1.0.0<br>Ph�n t�ch c? vua tr�n tr�nh duy?t v?i Stockfish.</p><p>Kh�ng c?n t�i kho?n. Ma ngu?n c� th? tri?n khai tr�n GitHub Pages ho?c d�ng g�i b?ng Capacitor.</p>"
     };
     return content[name]||"<p>Th�ng tin chua c�.</p>";
@@ -1745,7 +1745,7 @@
     if(action==="rename"){const name=await modalPrompt("D?i t�n th? c?","T�n m?i",item.name);if(name){item.name=name;item.updatedAt=new Date().toISOString();persistLibrary();renderLibrary();}return;}
     if(action==="duplicate"){const copy=Object.assign({},item,{id:"board-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7),name:item.name+" (b?n sao)",updatedAt:new Date().toISOString()});savedBoards.unshift(copy);persistLibrary();renderLibrary();pushToast("Da nh�n b?n th? c?.");return;}
     if(action==="delete"){
-      const choice=await showModal("X�a th? c? n�y?","<p>""+escapeHtml(item.name)+"" s? b? x�a kh?i Library tr�n thi?t b? n�y.</p>",[{label:"Gi? l?i",className:"btn-soft",value:false},{label:"X�a",className:"btn-danger",value:true}]);
+      const choice=await showModal("Xóa thế cờ này?","<p>\""+escapeHtml(item.name)+"\" sẽ bị xóa khỏi Library trên thiết bị này.</p>",[{label:"Giữ lại",className:"btn-soft",value:false},{label:"Xóa",className:"btn-danger",value:true}]);
       if(choice){savedBoards=savedBoards.filter(x=>x.id!==id);if(openItemId===id)openItemId=null;persistLibrary();renderLibrary();pushToast("Da x�a th? c?.");}
     }
   }
