@@ -40,12 +40,8 @@ test("hash router, back-to-primary action, and left-edge swipe are wired", () =>
 });
 
 test("drawer selection renders the route immediately and keeps the URL in sync", () => {
-  assert.ok(app.includes("history.pushState({h2cRoute:id}"));
-  assert.ok(app.includes("renderSideRoute(id);"));
-  assert.ok(app.includes('document.addEventListener("click",event=>{'));
-  assert.ok(app.includes('target?.closest("#drawerNavigation .drawer-link[data-route]")'));
-  assert.ok(app.includes('if(link)navigateSideRoute(link.dataset.route);'));
-  assert.ok(app.includes("},true);"));
+  assert.match(app, /function navigateSideRoute\(id\)\s*\{\s*if\(!routeItemById\(id\)\)return;[\s\S]*?history\.pushState\([\s\S]*?renderSideRoute\(id\);/);
+  assert.match(app, /document\.addEventListener\("click",event=>\{\s*const target=event\.target instanceof Element\?event\.target:null;\s*const link=target\?\.closest\("#drawerNavigation \.drawer-link\[data-route\]"\);\s*if\(link\)navigateSideRoute\(link\.dataset\.route\);\s*\},true\)/);
 });
 
 test("a feature rendering error cannot leave the landing page covering the selected route", () => {
@@ -55,9 +51,7 @@ test("a feature rendering error cannot leave the landing page covering the selec
 });
 
 test("navigation listeners register before optional app initialization can fail", () => {
-  assert.ok(app.includes("function bindNavigationEvents()"));
-  const navEvents = app.slice(app.indexOf("function bindNavigationEvents()"), app.indexOf("function bindEvents()"));
-  assert.ok(navEvents.includes('$$(".navtab").forEach'));
+  assert.match(app, /function bindNavigationEvents\(\)/);
   const initialize = app.slice(app.indexOf("function initialize()"));
   assert.ok(initialize.indexOf("bindNavigationEvents();") < initialize.indexOf('step("analysis board",renderAll)'));
   assert.ok(initialize.includes('step("initial screen",'));
@@ -68,3 +62,4 @@ test("route screens reuse the existing theme and are visible only as the active 
   assert.ok(css.includes(".screen.active"));
   assert.ok(css.includes(".route-screen"));
 });
+

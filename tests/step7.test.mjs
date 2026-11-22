@@ -17,4 +17,3 @@ test("chess.js is local and does not block the How2Chess UI on a third-party CDN
   assert.ok(license.includes("vendor/chess/LICENSE"));
   assert.ok(chess.includes("Copyright (c) 2020, Jeff Hlywa"));
 });
-

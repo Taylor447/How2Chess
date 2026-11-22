@@ -7,6 +7,9 @@ const files = [
   "app.css",
   "app.js",
   "follow-service.js",
+  "lichess-board.mjs",
+  "puzzle-peer-duel.mjs",
+  "puzzle-import-utils.mjs",
   "variant-runtime.mjs",
   "variant-utils.mjs",
   "engine-worker.js",
@@ -16,7 +19,8 @@ const files = [
   "icons",
   "models",
   "vendor/onnxruntime-web",
-  "vendor/chess"
+  "vendor/chess",
+  "vendor/fzstd"
 ];
 
 await rm(output, { recursive: true, force: true });

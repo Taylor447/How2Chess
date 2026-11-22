@@ -6,7 +6,7 @@
     tournaments:{url:API+"/tournament",format:"json"},
     streamers:{url:API+"/streamer/live",format:"json"}
   };
-  const TTL=5*60*1000,memory={},pending={},errors={};
+  const TTL=5*60*1000, memory={}, pending={}, errors={};
   let queue=Promise.resolve(),lastRequest=0,cooldownUntil=0;
   function read(key){
     if(memory[key])return memory[key];

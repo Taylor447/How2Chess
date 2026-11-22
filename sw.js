@@ -1,11 +1,14 @@
 "use strict";
-const CACHE_NAME = "how2chess-v18";
+const CACHE_NAME = "how2chess-v21";
 const LOCAL_ASSETS = [
   "./",
   "./index.html",
-  "./app.css?v=20261122.3",
-  "./app.js?v=20261122.10",
+  "./app.css?v=20261122.5",
+  "./app.js?v=20261122.13",
   "./follow-service.js",
+  "./lichess-board.mjs",
+  "./puzzle-peer-duel.mjs",
+  "./puzzle-import-utils.mjs",
   "./variant-runtime.mjs",
   "./variant-utils.mjs",
   "./engine-worker.js",
@@ -17,6 +20,8 @@ const LOCAL_ASSETS = [
   "./models/how2chess.int8.onnx",
   "./vendor/chess/chess.js",
   "./vendor/chess/LICENSE",
+  "./vendor/fzstd/esm/index.mjs",
+  "./vendor/fzstd/LICENSE",
   "./vendor/onnxruntime-web/ort.min.js",
   "./vendor/onnxruntime-web/ort-wasm-simd-threaded.mjs"
 ];

@@ -58,6 +58,21 @@
   let activeSideRoute = null;
   let sideDrawerOpen = false;
   let sideTouchStartX = null;
+  let lichessToken = "";
+  try { lichessToken = sessionStorage.getItem("h2c-lichess-token") || ""; } catch (_) {}
+  let lichessAccount = "";
+  try { lichessAccount = sessionStorage.getItem("h2c-lichess-account") || ""; } catch (_) {}
+  let lichessAccountLoading = false;
+  let lichessStatus = "";
+  let lichessEventController = null;
+let lichessEventRetryMs = 4000;
+  let lichessSeekController = null;
+  let lichessGameController = null;
+  let lichessIncomingChallenge = null;
+  let lichessChallengeUrl = "";
+  let lichessOnlineGame = null;
+  let lichessSelectedSquare = null;
+  let lichessLegalTargets = [];
   const BOT_CATALOG = [{"id":"mai-nang","name":"Mai Nắng","elo":250,"personality":"Tập đi quân căn bản, hay bỏ sót quân bị ăn.","randomRate":0.7,"alternateRate":0.18,"nameEn":"Mai Sunrise","personalityEn":"Learning the basics; often overlooks a loose piece."},{"id":"tot-cham","name":"Tốt Chậm","elo":350,"personality":"Thích đẩy tốt, đôi khi quên bảo vệ vua.","randomRate":0.63,"alternateRate":0.18,"nameEn":"Slow Pawn","personalityEn":"Likes pawn pushes and can forget king safety."},{"id":"ve-binh","name":"Vệ Binh","elo":500,"personality":"Phòng thủ chắc tay nhưng ít phản công.","randomRate":0.52,"alternateRate":0.18,"nameEn":"Guardian","personalityEn":"Defends patiently but rarely counterattacks."},{"id":"bao-tap","name":"Bão Táp","elo":650,"personality":"Ưa tấn công nhanh, có lúc lao lên quá sớm.","randomRate":0.43,"alternateRate":0.2,"nameEn":"Storm Chaser","personalityEn":"Attacks quickly and sometimes overcommits."},{"id":"ma-lem-linh","name":"Mã Lém Lỉnh","elo":800,"personality":"Tìm đòn mã thú vị, đôi khi bỏ qua nước đơn giản.","randomRate":0.34,"alternateRate":0.21,"nameEn":"Tricky Knight","personalityEn":"Looks for knight tricks and may miss a simple move."},{"id":"phao-dai","name":"Pháo Đài","elo":950,"personality":"Ưu tiên an toàn và đổi quân.","randomRate":0.27,"alternateRate":0.19,"nameEn":"Fortress","personalityEn":"Prefers safety and simplifying the position."},{"id":"trung-tam","name":"Trung Tâm","elo":1100,"personality":"Tranh chấp trung tâm, chơi cân bằng.","randomRate":0.21,"alternateRate":0.18,"nameEn":"Center Control","personalityEn":"Fights for central squares with balanced play."},{"id":"doi-tuong","name":"Đôi Tượng","elo":1250,"personality":"Kiên nhẫn giữ cặp tượng và đường chéo.","randomRate":0.16,"alternateRate":0.17,"nameEn":"Bishop Pair","personalityEn":"Values the bishop pair and open diagonals."},{"id":"tan-cuoc","name":"Tàn Cuộc","elo":1400,"personality":"Chuyển sang tàn cuộc khá bình tĩnh.","randomRate":0.11,"alternateRate":0.15,"nameEn":"Endgame Planner","personalityEn":"Stays calm when the game reaches an endgame."},{"id":"chien-thuat","name":"Chiến Thuật","elo":1550,"personality":"Hay nhìn thấy ghim và đòn đôi.","randomRate":0.085,"alternateRate":0.14,"nameEn":"Tactician","personalityEn":"Looks for pins and forks."},{"id":"ky-luat","name":"Kỷ Luật","elo":1700,"personality":"Chơi có kế hoạch, ít tự làm yếu vua.","randomRate":0.06,"alternateRate":0.12,"nameEn":"Disciplined","personalityEn":"Follows a plan and keeps the king safe."},{"id":"gambit","name":"Gambit","elo":1850,"personality":"Sẵn sàng thí tốt để giành thế chủ động.","randomRate":0.045,"alternateRate":0.11,"nameEn":"Gambit","personalityEn":"May sacrifice a pawn for initiative."},{"id":"don-doi","name":"Đòn Đôi","elo":2000,"personality":"Tìm nước ép buộc và chiến thuật ngắn.","randomRate":0.032,"alternateRate":0.09,"nameEn":"Double Attack","personalityEn":"Looks for forcing tactics and short combinations."},{"id":"dai-kien-tuong","name":"Đại Kiện Tướng","elo":2200,"personality":"Ưu tiên nước chính xác, xử lý tốt vị trí mở.","randomRate":0.022,"alternateRate":0.07,"nameEn":"Grandmaster","personalityEn":"Seeks accurate moves in open positions."},{"id":"co-dien","name":"Kỳ Thủ Cổ Điển","elo":2350,"personality":"Chơi nguyên tắc và tích lũy lợi thế nhỏ.","randomRate":0.014,"alternateRate":0.05,"nameEn":"Classical","personalityEn":"Builds small advantages with principled play."},{"id":"bong-dem","name":"Bóng Đêm","elo":2500,"personality":"Đối thủ mạnh nhất trong danh sách.","randomRate":0.008,"alternateRate":0.035,"nameEn":"Shadow","personalityEn":"The toughest opponent in this local roster."}];
   let selectedBotId = "trung-tam", botPlayerColor = "w", botClockChoice = "10+0", historyFilter = "all";
   let botAllowUndo = true, botShowHints = true, botShowEval = true, botMatch = null, botClockTimer = null;
@@ -103,7 +118,7 @@
   let dailyProgress=parseJSON(store.get("h2c-daily-progress","{}"),{});
   if(!dailyProgress||typeof dailyProgress!=="object"||Array.isArray(dailyProgress))dailyProgress={};
   let puzzleDailyPromise=null,puzzleDailyStatus="",puzzleDailyAttemptAt=Number(store.get("h2c-daily-attempt","0"))||0;
-  let puzzleRush=null,puzzleDuel=null,puzzleTimer=null,puzzleOpponentTimer=null,puzzleImportedCount=Number(store.get("h2c-puzzle-import-count","0"))||0;
+  let puzzleRush=null,puzzleDuel=null,puzzlePeerDuel=null,pendingPuzzlePeerOfferCode="",puzzleTimer=null,puzzleOpponentTimer=null,puzzleImportedCount=Number(store.get("h2c-puzzle-import-count","0"))||0;
 
 
   const EN_TEXT = {
@@ -531,10 +546,11 @@
     if(puzzleSession.mode==="daily")saveDailySolved();
     if(puzzleSession.mode==="rush"&&puzzleRush?.active){puzzleRush.score++;puzzleRush.combo++;puzzleRush.solved++;puzzleRush.bestCombo=Math.max(puzzleRush.bestCombo,puzzleRush.combo);setTimeout(nextRushPuzzle,550);}
     else if(puzzleSession.mode==="duel"&&puzzleDuel?.active){clearTimeout(puzzleOpponentTimer);puzzleDuel.playerScore++;puzzleDuel.solved++;puzzleDuel.turnId++;setTimeout(nextDuelPuzzle,550);}
+    else if(puzzleSession.mode==="friend-duel"&&puzzlePeerDuel?.active){puzzlePeerDuel.playerScore++;puzzlePeerDuel.solved++;sendPeerDuelMessage("score",{score:puzzlePeerDuel.playerScore,solved:puzzlePeerDuel.solved,errors:puzzlePeerDuel.errors});setTimeout(nextFriendDuelPuzzle,550);}
     else{puzzleSession.hintText=settings.language==="en"?"Solved — excellent calculation!":"Giải chính xác — tính toán rất tốt!";if(activeSideRoute==="daily")puzzleDailyStatus=settings.language==="en"?"Solved today":"Đã giải hôm nay";}
     renderActiveFeatureRoute();
   }
-  function handlePuzzleWrongMove(){if(!puzzleSession)return;puzzleSession.errors++;puzzleSession.hintText=settings.language==="en"?"Not that move. Check forcing moves, captures, and king safety.":"Chưa đúng. Hãy xét nước chiếu, nước bắt quân và an toàn vua.";if(!puzzleSession.penalized)adjustPuzzleGameProgress();if(puzzleSession.mode==="rush"&&puzzleRush?.active){puzzleRush.combo=0;puzzleRush.errors++;if(puzzleRush.kind==="survival"){puzzleRush.lives--;if(puzzleRush.lives<=0)finishPuzzleRush();}else puzzleRush.seconds=Math.max(0,puzzleRush.seconds-5);if(puzzleRush.kind==="timed"&&puzzleRush.seconds<=0)finishPuzzleRush();}else if(puzzleSession.mode==="duel"&&puzzleDuel?.active)puzzleDuel.misses++;renderActiveFeatureRoute();}
+  function handlePuzzleWrongMove(){if(!puzzleSession)return;puzzleSession.errors++;puzzleSession.hintText=settings.language==="en"?"Not that move. Check forcing moves, captures, and king safety.":"Chưa đúng. Hãy xét nước chiếu, nước bắt quân và an toàn vua.";if(!puzzleSession.penalized)adjustPuzzleGameProgress();if(puzzleSession.mode==="rush"&&puzzleRush?.active){puzzleRush.combo=0;puzzleRush.errors++;if(puzzleRush.kind==="survival"){puzzleRush.lives--;if(puzzleRush.lives<=0)finishPuzzleRush();}else puzzleRush.seconds=Math.max(0,puzzleRush.seconds-5);if(puzzleRush.kind==="timed"&&puzzleRush.seconds<=0)finishPuzzleRush();}else if(puzzleSession.mode==="duel"&&puzzleDuel?.active)puzzleDuel.misses++;else if(puzzleSession.mode==="friend-duel"&&puzzlePeerDuel?.active){puzzlePeerDuel.errors++;puzzlePeerDuel.seconds=Math.max(0,puzzlePeerDuel.seconds-5);sendPeerDuelMessage("score",{score:puzzlePeerDuel.playerScore,solved:puzzlePeerDuel.solved,errors:puzzlePeerDuel.errors});if(puzzlePeerDuel.seconds<=0)finishFriendDuel("time");}renderActiveFeatureRoute();}
   function attemptPuzzleMove(from,to){if(!puzzleSession||puzzleSession.solved)return;const game=puzzleSession.game,expected=puzzleActiveMove();if(!expected)return;let move;try{move=game.move({from,to,promotion:expected[4]||"q"});}catch(_){}if(!move)return;const actual=move.from+move.to+(move.promotion||"");if(actual!==expected){game.undo();handlePuzzleWrongMove();return;}puzzleLastMove={from:move.from,to:move.to};puzzleSelected=null;puzzleLegalTargets=[];puzzleSession.index++;if(puzzleSession.index<puzzleSession.record.solution.length){const reply=puzzleSession.record.solution[puzzleSession.index];try{const response=game.move({from:reply.slice(0,2),to:reply.slice(2,4),promotion:reply[4]||"q"});if(response){puzzleLastMove={from:response.from,to:response.to};puzzleSession.index++;}}catch(_){}}if(puzzleSession.index>=puzzleSession.record.solution.length)finishPuzzleSolved();else{puzzleSession.hintText=settings.language==="en"?"Correct. Find the next forcing move.":"Đúng rồi. Hãy tìm tiếp nước ép buộc.";renderActiveFeatureRoute();}}
   function handlePuzzleSquare(sq){if(!puzzleSession||puzzleSession.solved)return;const game=puzzleSession.game,piece=game.get(sq);if(puzzleSelected&&puzzleLegalTargets.includes(sq)){attemptPuzzleMove(puzzleSelected,sq);return;}if(piece&&piece.color===game.turn()){puzzleSelected=sq;puzzleLegalTargets=game.moves({square:sq,verbose:true}).map(move=>move.to);renderPuzzleBoard();return;}puzzleSelected=null;puzzleLegalTargets=[];renderPuzzleBoard();}
   function requestPuzzleHint(level){if(!puzzleSession)return;const uci=puzzleActiveMove();if(!uci)return;const game=puzzleSession.game,piece=game.get(uci.slice(0,2)),en=settings.language==="en";puzzleHintSquares=[];puzzleHintArrow=null;if(level===1){const themes=puzzleSession.record.themes||[];puzzleSession.hintText=themes.length?(en?"Theme: ":"Chủ đề: ")+themes.map(theme=>puzzleThemeLabel(theme,en)).join(", "):(en?"Look for a forcing move.":"Hãy tìm một nước đi ép buộc.");}else if(level===2){puzzleHintSquares=[uci.slice(0,2)];const names=en?{p:"pawn",n:"knight",b:"bishop",r:"rook",q:"queen",k:"king"}:{p:"Tốt",n:"Mã",b:"Tượng",r:"Xe",q:"Hậu",k:"Vua"};puzzleSession.hintText=(en?"Consider the ":"Hãy cân nhắc quân ")+(names[piece?.type]||"piece")+(en?" on "+uci.slice(0,2)+".":" ở ô "+uci.slice(0,2)+".");}else{puzzleHintArrow={from:uci.slice(0,2),to:uci.slice(2,4)};const san=convertPvToSan([uci],game.fen()).first||uci;puzzleSession.hintText=(en?"Suggested move: ":"Nước gợi ý: ")+san+" ("+uci.slice(0,2)+"–"+uci.slice(2,4)+").";puzzleHintSquares=[uci.slice(0,2),uci.slice(2,4)];}renderActiveFeatureRoute();}
@@ -586,7 +602,7 @@
     const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en";
     if(puzzleSession&&puzzleSession.mode==="library"){mountPuzzlePanel(en?"PUZZLE LIBRARY":"KHO CÂU ĐỐ",en?"Solve the line, then review it.":"Giải biến chính rồi xem lại lời giải.",'<button class="btn btn-soft" type="button" data-puzzle-back>'+ (en?"Back to library":"Về kho câu đố")+'</button>',true);return;}
     const themes=["all","mateIn1","mateIn2","fork","pin","hangingPiece","sacrifice","promotion","endgame","custom"],options=themes.map(theme=>'<option value="'+theme+'"'+(puzzleLibraryTheme===theme?" selected":"")+'>'+puzzleThemeLabel(theme,en)+'</option>').join(""),imported=puzzleImportedCount?((en?"Imported this session: ":"Đã nhập phiên này: ")+puzzleImportedCount.toLocaleString()+" puzzles"):(en?"No local Lichess pack yet.":"Chưa có kho Lichess cục bộ.");
-    host.innerHTML='<section class="card puzzle-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"TACTICS PRACTICE":"LUYỆN CHIẾN THUẬT")+'</span><h3>'+(en?"Puzzle library":"Kho câu đố")+'</h3><p>'+(en?"Start offline, or import a small CC0 slice from Lichess.":"Dùng kho mẫu offline hoặc nhập một phần dữ liệu CC0 của Lichess.")+'</p></div><div class="puzzle-rating-pill"><strong>'+puzzleRating+'</strong><span>'+(en?"practice rating":"rating câu đố")+'</span></div></section><div class="card puzzle-import-card"><div class="field-row"><label class="field-label" for="puzzleThemeFilter">'+(en?"Theme":"Chủ đề")+'</label><select id="puzzleThemeFilter">'+options+'</select><label class="field-label" for="puzzleDifficultyFilter">'+(en?"Difficulty":"Độ khó")+'</label><select id="puzzleDifficultyFilter"><option value="all">'+(en?"All levels":"Mọi mức")+'</option><option value="easy"'+(puzzleLibraryDifficulty==="easy"?" selected":"")+'>≤ 1199</option><option value="medium"'+(puzzleLibraryDifficulty==="medium"?" selected":"")+'>1200–1799</option><option value="hard"'+(puzzleLibraryDifficulty==="hard"?" selected":"")+'>≥ 1800</option></select><label class="field-label" for="puzzleImportLimit">'+(en?"Import limit":"Giới hạn nhập")+'</label><select id="puzzleImportLimit"><option value="100000">100,000</option><option value="300000">300,000</option></select></div><div class="puzzle-import-actions"><a class="btn btn-soft" href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener noreferrer">'+(en?"Lichess CC0 database":"Dữ liệu CC0 Lichess")+'</a><button class="btn btn-primary" type="button" data-puzzle-import>'+ (en?"Import puzzle CSV":"Nhập CSV câu đố")+'</button><input id="puzzleCsvFile" type="file" accept=".csv,text/csv" hidden><span id="puzzleImportStatus" aria-live="polite">'+escapeHtml(imported)+'</span></div><small class="puzzle-origin">'+(en?"Uncompress the official .zst file to CSV first; the importer streams at most the chosen number of valid puzzles into IndexedDB.":"Giải nén tệp .zst chính thức thành CSV trước; trình nhập đọc theo luồng và chỉ lưu tối đa số bài đã chọn vào IndexedDB.")+'</small></div><div class="puzzle-list" id="puzzleList"></div>';
+    host.innerHTML='<section class="card puzzle-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"TACTICS PRACTICE":"LUYỆN CHIẾN THUẬT")+'</span><h3>'+(en?"Puzzle library":"Kho câu đố")+'</h3><p>'+(en?"Start offline, or import a small CC0 slice from Lichess.":"Dùng kho mẫu offline hoặc nhập một phần dữ liệu CC0 của Lichess.")+'</p></div><div class="puzzle-rating-pill"><strong>'+puzzleRating+'</strong><span>'+(en?"practice rating":"rating câu đố")+'</span></div></section><div class="card puzzle-import-card"><div class="field-row"><label class="field-label" for="puzzleThemeFilter">'+(en?"Theme":"Chủ đề")+'</label><select id="puzzleThemeFilter">'+options+'</select><label class="field-label" for="puzzleDifficultyFilter">'+(en?"Difficulty":"Độ khó")+'</label><select id="puzzleDifficultyFilter"><option value="all">'+(en?"All levels":"Mọi mức")+'</option><option value="easy"'+(puzzleLibraryDifficulty==="easy"?" selected":"")+'>≤ 1199</option><option value="medium"'+(puzzleLibraryDifficulty==="medium"?" selected":"")+'>1200–1799</option><option value="hard"'+(puzzleLibraryDifficulty==="hard"?" selected":"")+'>≥ 1800</option></select><label class="field-label" for="puzzleImportLimit">'+(en?"Import limit":"Giới hạn nhập")+'</label><select id="puzzleImportLimit"><option value="100000">100,000</option><option value="300000">300,000</option></select></div><div class="puzzle-import-actions"><a class="btn btn-soft" href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener noreferrer">'+(en?"Lichess CC0 database":"Dữ liệu CC0 Lichess")+'</a><button class="btn btn-primary" type="button" data-puzzle-import>'+ (en?"Import puzzle database":"Nhập kho câu đố")+'</button><input id="puzzleCsvFile" type="file" accept=".csv,.zst,text/csv,application/zstd" hidden><span id="puzzleImportStatus" aria-live="polite">'+escapeHtml(imported)+'</span></div><small class="puzzle-origin">'+(en?"Choose the official .csv.zst or an extracted .csv. The importer streams data and stores only the selected 100k–300k valid puzzles in IndexedDB.":"Chọn tệp .csv.zst chính thức hoặc .csv đã giải nén. Ứng dụng đọc theo luồng và chỉ lưu 100k–300k câu hợp lệ vào IndexedDB.")+'</small></div><div class="puzzle-list" id="puzzleList"></div>';
     renderPuzzleList([],false);const id=++puzzleLibraryRequest;
     queryPuzzleDatabase(puzzleLibraryTheme,puzzleLibraryDifficulty,60).then(rows=>{if(id===puzzleLibraryRequest&&activeSideRoute==="puzzles")renderPuzzleList(rows,false);}).catch(()=>{const status=$("#puzzleImportStatus");if(status)status.textContent=en?"IndexedDB unavailable; starter set only.":"IndexedDB không dùng được; chỉ hiện kho mẫu offline.";});
   }
@@ -604,18 +620,20 @@
   }
   async function importLichessPuzzleFile(file){
     const status=$("#puzzleImportStatus"),en=settings.language==="en";
-    if(!file||!file.name.toLowerCase().endsWith(".csv")){if(status)status.textContent=en?"Choose the uncompressed .csv file.":"Chọn tệp .csv đã giải nén trước.";return;}
+    if(!file)return;const lowerName=file.name.toLowerCase(),compressed=lowerName.endsWith(".zst"),csv=lowerName.endsWith(".csv");
+    if(!compressed&&!csv){if(status)status.textContent=en?"Choose a .csv.zst or .csv file.":"Hãy chọn tệp .csv.zst hoặc .csv.";return;}
     if(!file.stream){if(status)status.textContent=en?"This browser cannot stream the file.":"Trình duyệt này chưa hỗ trợ đọc tệp theo luồng.";return;}
     const limit=Math.max(1000,Math.min(300000,Number($("#puzzleImportLimit")?.value)||100000));let reader=null,count=0,lineNumber=0,buffer="",batch=[];
     try{
-      reader=file.stream().getReader();const decoder=new TextDecoder();
+      let source=file.stream();if(compressed){if(status)status.textContent=en?"Loading the local Zstandard decoder…":"Đang nạp bộ giải nén Zstandard cục bộ…";const {createZstdReadableStream}=await import("./puzzle-import-utils.mjs");source=createZstdReadableStream(source);}
+      reader=source.getReader();const decoder=new TextDecoder();
       const saveBatch=async()=>{if(batch.length){await savePuzzleBatch(batch);batch=[];}};
       const consume=async line=>{line=line.replace(/\r$/,"");if(!line.trim())return;const record=puzzleFromLichessCsv(line);lineNumber++;if(record){batch.push(record);count++;}if(batch.length>=1000)await saveBatch();if(status&&lineNumber%1000===0)status.textContent=(en?"Reading · saved ":"Đang đọc · đã lưu ")+count.toLocaleString()+" / "+limit.toLocaleString();};
       while(count<limit){const part=await reader.read();buffer+=decoder.decode(part.value||new Uint8Array(),{stream:!part.done});const lines=buffer.split(/\n/);buffer=lines.pop()||"";for(const line of lines){await consume(line);if(count>=limit)break;}if(part.done)break;}
       if(count<limit&&buffer.trim())await consume(buffer);await saveBatch();
       puzzleImportedCount+=count;store.set("h2c-puzzle-import-count",String(puzzleImportedCount));if(status)status.textContent=(en?"Imported ":"Đã nhập ")+count.toLocaleString()+(en?" puzzles into IndexedDB.":" câu đố vào IndexedDB.");renderPuzzleLibraryRoute();
     }catch(error){if(status)status.textContent=(en?"Import stopped: ":"Đã dừng nhập: ")+(error?.message||"IndexedDB error");}
-    finally{try{reader?.releaseLock();}catch(_){}}
+    finally{try{if(reader&&count>=limit)await reader.cancel();}catch(_){}try{reader?.releaseLock();}catch(_){}}
   }
   function renderPuzzleRushRoute(){
     const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en";
@@ -642,11 +660,99 @@
   function scheduleDuelOpponent(){if(!puzzleDuel?.active)return;clearTimeout(puzzleOpponentTimer);const difficulty=Number(puzzleSession?.record.rating)||1200,delay=Math.max(2200,Math.min(14000,11800-(puzzleDuel.botElo-700)*3+(difficulty-1200)*1.2)),id=puzzleDuel.turnId;puzzleOpponentTimer=setTimeout(()=>{if(!puzzleDuel?.active||puzzleDuel.turnId!==id)return;puzzleDuel.botScore++;puzzleDuel.turnId++;puzzleSession=null;nextDuelPuzzle();},delay);}
   function nextDuelPuzzle(){if(!puzzleDuel?.active)return;const record=chooseLocalPuzzle(puzzleRating+Math.min(600,puzzleDuel.playerScore*40));startPuzzleSession(record,"duel");puzzleDuel.turnId++;scheduleDuelOpponent();if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();}
   function finishPuzzleDuel(){if(!puzzleDuel)return;clearPuzzleTimers();puzzleDuel.active=false;puzzleDuel.finished=true;const best=Number(store.get("h2c-duel-best","0"))||0;if(puzzleDuel.playerScore>best)store.set("h2c-duel-best",String(puzzleDuel.playerScore));if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();}
+  function sendPeerDuelMessage(type,details={}){
+    const channel=puzzlePeerDuel?.channel;if(!channel||channel.readyState!=="open")return false;
+    try{channel.send(JSON.stringify({type,...details}));return true;}catch(_){return false;}
+  }
+  function peerDuelLink(code){return location.origin+location.pathname+"?h2c_duel="+encodeURIComponent(code)+"#/puzzle-duel";}
+  function friendPuzzleQueue(){
+    const pool=getPuzzleLocalList(),queue=[],seen=new Set();
+    for(let i=0;i<24;i++){
+      const target=puzzleRating+Math.min(600,i*18);let chosen=null;
+      for(let attempt=0;attempt<10;attempt++){
+        const candidate=pool.length?pool[Math.floor(Math.random()*pool.length)]:STARTER_PUZZLES[Math.floor(Math.random()*STARTER_PUZZLES.length)];
+        if(!candidate||seen.has(String(candidate.id||"")))continue;
+        if(!chosen||Math.abs((Number(candidate.rating)||1200)-target)<Math.abs((Number(chosen.rating)||1200)-target))chosen=candidate;
+      }
+      if(!chosen)chosen=STARTER_PUZZLES[i%STARTER_PUZZLES.length];
+      if(!puzzleSolutionIsLegal(chosen))chosen=STARTER_PUZZLES[i%STARTER_PUZZLES.length];
+      seen.add(String(chosen.id||"local-"+i));queue.push({id:String(chosen.id||"local-"+i),fen:chosen.fen,solution:chosen.solution.slice(),rating:Number(chosen.rating)||1200,themes:(chosen.themes||[]).slice(0,8)});
+    }
+    return queue;
+  }
+  function bindFriendDuelChannel(channel){
+    if(!puzzlePeerDuel||!channel)return;puzzlePeerDuel.channel=channel;
+    channel.onopen=()=>{if(!puzzlePeerDuel)return;puzzlePeerDuel.connected=true;puzzlePeerDuel.status=settings.language==="en"?"Peer connected. Sending the shared puzzle set…":"Đã kết nối bạn chơi. Đang gửi bộ câu đố chung…";if(puzzlePeerDuel.role==="host")sendPeerDuelMessage("puzzles",{puzzles:puzzlePeerDuel.queue});if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();};
+    channel.onmessage=event=>{if(!puzzlePeerDuel)return;let message;try{message=JSON.parse(event.data);}catch(_){return;}
+      if(message.type==="puzzles"&&puzzlePeerDuel.role==="guest"){
+        const queue=(Array.isArray(message.puzzles)?message.puzzles:[]).slice(0,40).filter(record=>record&&typeof record.fen==="string"&&Array.isArray(record.solution)&&puzzleSolutionIsLegal(record));
+        if(!queue.length){puzzlePeerDuel.status=settings.language==="en"?"The host sent no valid puzzles.":"Bạn mời chưa gửi được bộ câu đố hợp lệ.";}
+        else{puzzlePeerDuel.queue=queue;puzzlePeerDuel.remoteReady=true;puzzlePeerDuel.status=settings.language==="en"?"Ready. Wait for the host to start the 90-second round.":"Đã sẵn sàng. Chờ chủ phòng bắt đầu lượt 90 giây.";sendPeerDuelMessage("ready");}
+      }else if(message.type==="ready"&&puzzlePeerDuel.role==="host"){
+        puzzlePeerDuel.remoteReady=true;puzzlePeerDuel.status=settings.language==="en"?"Your friend is ready. Start the duel when you are.":"Bạn của bạn đã sẵn sàng. Có thể bắt đầu.";
+      }else if(message.type==="start"&&puzzlePeerDuel.role==="guest"){
+        startFriendDuelRound(Number(message.startedAt)||Date.now());
+      }else if(message.type==="score"){
+        puzzlePeerDuel.opponentScore=Math.max(0,Math.min(1000,Number(message.score)||0));puzzlePeerDuel.opponentSolved=Math.max(0,Math.min(1000,Number(message.solved)||0));puzzlePeerDuel.opponentErrors=Math.max(0,Math.min(1000,Number(message.errors)||0));
+      }else if(message.type==="finish"){
+        puzzlePeerDuel.opponentFinished=true;puzzlePeerDuel.opponentFinalScore=Math.max(0,Math.min(1000,Number(message.score)||0));puzzlePeerDuel.status=settings.language==="en"?"Your friend finished their run.":"Bạn của bạn đã hoàn thành lượt giải.";
+      }
+      if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();
+    };
+    channel.onclose=()=>{if(!puzzlePeerDuel)return;puzzlePeerDuel.connected=false;if(puzzlePeerDuel.active)finishFriendDuel("disconnect",false);else{puzzlePeerDuel.status=settings.language==="en"?"Peer connection closed.":"Kết nối với bạn chơi đã đóng.";if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();}};
+    if(channel.readyState==="open")channel.onopen();
+  }
+  async function createFriendDuelInvite(){
+    try{
+      const api=await import("./puzzle-peer-duel.mjs"),queue=friendPuzzleQueue();if(!queue.length)throw new Error("No valid local puzzles are available.");
+      puzzlePeerDuel={role:"host",queue,playerScore:0,opponentScore:0,solved:0,errors:0,seconds:90,active:false,remoteReady:false,connected:false,status:settings.language==="en"?"Preparing a secure peer invite…":"Đang tạo lời mời kết nối ngang hàng…"};renderPuzzleDuelRoute();
+      const offer=await api.createPeerOffer();if(puzzlePeerDuel?.role!=="host")return;puzzlePeerDuel.peer=offer.peer;puzzlePeerDuel.offerCode=offer.code;puzzlePeerDuel.inviteUrl=peerDuelLink(offer.code);puzzlePeerDuel.status=settings.language==="en"?"Invite link ready. Send it to your friend, then paste their answer code below.":"Đã tạo liên kết mời. Gửi cho bạn của bạn, sau đó dán mã trả lời của họ bên dưới.";offer.peer.addEventListener("connectionstatechange",()=>{if(!puzzlePeerDuel)return;if(["failed","closed"].includes(offer.peer.connectionState)){puzzlePeerDuel.status=settings.language==="en"?"Peer connection failed. Try a new invite or use the local bot.":"Kết nối ngang hàng thất bại. Hãy tạo lời mời mới hoặc chơi với bot.";if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();}});bindFriendDuelChannel(offer.channel);renderPuzzleDuelRoute();
+    }catch(error){puzzlePeerDuel={role:"host",status:(settings.language==="en"?"Could not create peer invite: ":"Không tạo được lời mời: ")+(error?.message||"WebRTC unavailable")};renderPuzzleDuelRoute();}
+  }
+  async function joinFriendDuelInvite(){
+    if(!pendingPuzzlePeerOfferCode)return;let incomingChannel=null;
+    try{
+      const api=await import("./puzzle-peer-duel.mjs");puzzlePeerDuel={role:"guest",playerScore:0,opponentScore:0,solved:0,errors:0,seconds:90,active:false,connected:false,status:settings.language==="en"?"Connecting to your friend…":"Đang kết nối với bạn…"};renderPuzzleDuelRoute();
+      const answer=await api.createPeerAnswer({offerCode:pendingPuzzlePeerOfferCode,onDataChannel:channel=>{incomingChannel=channel;}});if(puzzlePeerDuel?.role!=="guest")return;puzzlePeerDuel.peer=answer.peer;puzzlePeerDuel.answerCode=answer.code;puzzlePeerDuel.status=settings.language==="en"?"Answer code ready. Send it back to the friend who created the invite.":"Đã tạo mã trả lời. Gửi mã này lại cho người tạo lời mời.";pendingPuzzlePeerOfferCode="";answer.peer.addEventListener("connectionstatechange",()=>{if(!puzzlePeerDuel)return;if(["failed","closed"].includes(answer.peer.connectionState)){puzzlePeerDuel.status=settings.language==="en"?"Peer connection failed. Try another network or use the local bot.":"Kết nối ngang hàng thất bại. Hãy thử mạng khác hoặc chơi với bot.";if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();}});if(incomingChannel)bindFriendDuelChannel(incomingChannel);renderPuzzleDuelRoute();
+    }catch(error){puzzlePeerDuel={role:"guest",status:(settings.language==="en"?"Could not join this invite: ":"Không thể tham gia lời mời: ")+(error?.message||"WebRTC unavailable")};renderPuzzleDuelRoute();}
+  }
+  async function applyFriendDuelAnswer(){
+    if(!puzzlePeerDuel?.peer||puzzlePeerDuel.role!=="host")return;
+    try{const api=await import("./puzzle-peer-duel.mjs");await api.applyPeerAnswer(puzzlePeerDuel.peer,$("#peerAnswerInput")?.value||"");puzzlePeerDuel.status=settings.language==="en"?"Answer applied. Waiting for the peer connection…":"Đã nhận mã trả lời. Đang chờ kết nối…";renderPuzzleDuelRoute();}
+    catch(error){puzzlePeerDuel.status=(settings.language==="en"?"Could not apply the answer code: ":"Không dùng được mã trả lời: ")+(error?.message||"invalid code");renderPuzzleDuelRoute();}
+  }
+  function startFriendDuelRound(startedAt){
+    if(!puzzlePeerDuel?.queue?.length)return;puzzlePeerDuel.active=true;puzzlePeerDuel.finished=false;puzzlePeerDuel.startedAt=startedAt;puzzlePeerDuel.seconds=Math.max(0,90-Math.floor((Date.now()-startedAt)/1000));puzzlePeerDuel.localIndex=0;puzzlePeerDuel.playerScore=0;puzzlePeerDuel.opponentScore=0;puzzlePeerDuel.solved=0;puzzlePeerDuel.errors=0;clearPuzzleTimers();nextFriendDuelPuzzle();
+    puzzleTimer=setInterval(()=>{if(!puzzlePeerDuel?.active)return;puzzlePeerDuel.seconds=Math.max(0,90-Math.floor((Date.now()-puzzlePeerDuel.startedAt)/1000));const el=$("#friendDuelTimer");if(el)el.textContent=puzzlePeerDuel.seconds;if(puzzlePeerDuel.seconds<=0)finishFriendDuel("time");},250);
+  }
+  function nextFriendDuelPuzzle(){
+    const duel=puzzlePeerDuel;if(!duel?.active)return;const record=duel.queue[duel.localIndex++];if(!record){finishFriendDuel("puzzles");return;}
+    if(startPuzzleSession(record,"friend-duel")){if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();}else finishFriendDuel("invalid-puzzle");
+  }
+  function startFriendDuel(){
+    if(puzzlePeerDuel?.role!=="host"||!puzzlePeerDuel.remoteReady||!puzzlePeerDuel.connected)return;
+    const startedAt=Date.now();if(!sendPeerDuelMessage("start",{startedAt})){puzzlePeerDuel.status=settings.language==="en"?"The data channel is not ready.":"Kênh kết nối chưa sẵn sàng.";renderPuzzleDuelRoute();return;}startFriendDuelRound(startedAt);
+  }
+  function finishFriendDuel(reason,send=true){
+    const duel=puzzlePeerDuel;if(!duel||duel.finished)return;clearPuzzleTimers();duel.active=false;duel.finished=true;duel.reason=reason;if(send)sendPeerDuelMessage("finish",{score:duel.playerScore,solved:duel.solved,reason});duel.status=reason==="time"?(settings.language==="en"?"Time is up.":"Hết giờ."):reason==="disconnect"?(settings.language==="en"?"Your friend disconnected.":"Bạn chơi đã ngắt kết nối."):(settings.language==="en"?"Round complete.":"Đã kết thúc lượt giải.");if(activeSideRoute==="puzzle-duel")renderPuzzleDuelRoute();
+  }
+  function closeFriendDuel(){if(!puzzlePeerDuel)return;clearPuzzleTimers();try{puzzlePeerDuel.channel?.close();puzzlePeerDuel.peer?.close();}catch(_){}puzzlePeerDuel=null;puzzleSession=null;renderPuzzleDuelRoute();}
+  function renderFriendDuelCard(en){
+    const pending=new URLSearchParams(location.search).get("h2c_duel");if(pending&&!pendingPuzzlePeerOfferCode&&!puzzlePeerDuel)pendingPuzzlePeerOfferCode=pending;
+    const incoming=pendingPuzzlePeerOfferCode&&!puzzlePeerDuel?'<section class="card peer-duel-card"><span class="eyebrow eyebrow-soft">'+(en?"FRIEND INVITE":"LỜI MỜI BẠN BÈ")+'</span><h3>'+(en?"Join a puzzle duel":"Tham gia đấu câu đố")+'</h3><p>'+(en?"Create an answer code and send it to the friend who shared this link.":"Tạo mã trả lời rồi gửi cho người đã chia sẻ liên kết này.")+'</p><button class="btn btn-primary" type="button" data-peer-join>'+(en?"Join invite":"Tham gia")+'</button></section>':"";
+    if(!puzzlePeerDuel)return incoming+'<section class="card peer-duel-card"><span class="eyebrow eyebrow-soft">'+(en?"PLAY A FRIEND · NO APP SERVER":"ĐẤU BẠN · KHÔNG CẦN SERVER APP")+'</span><h3>'+(en?"Puzzle duel with a friend":"Đấu câu đố với bạn")+'</h3><p>'+(en?"A private WebRTC data channel carries scores and a shared local puzzle set. Exchange one invite link and one answer code in your chat app.":"Kênh WebRTC riêng truyền điểm và bộ câu đố chung. Hai người trao đổi một liên kết mời và một mã trả lời qua ứng dụng nhắn tin.")+'</p><button class="btn btn-soft" type="button" data-peer-create>'+(en?"Create friend invite":"Tạo lời mời cho bạn")+'</button></section>'+incoming;
+    const duel=puzzlePeerDuel,share=duel.inviteUrl?'<label class="field-label" for="peerInviteUrl">'+(en?"Invite link":"Liên kết mời")+'<input id="peerInviteUrl" readonly value="'+escapeHtml(duel.inviteUrl)+'"></label><button class="btn btn-soft" type="button" data-peer-copy-invite>'+(en?"Copy invite link":"Sao chép liên kết mời")+'</button><label class="field-label" for="peerAnswerInput">'+(en?"Paste your friend's answer code":"Dán mã trả lời của bạn")+'<textarea id="peerAnswerInput" rows="3" autocomplete="off"></textarea></label><button class="btn btn-soft" type="button" data-peer-apply-answer>'+(en?"Connect with answer code":"Kết nối bằng mã trả lời")+'</button>':"";
+    const answer=duel.answerCode?'<label class="field-label" for="peerAnswerOutput">'+(en?"Answer code to send back":"Mã trả lời gửi lại")+'<textarea id="peerAnswerOutput" rows="3" readonly>'+escapeHtml(duel.answerCode)+'</textarea></label><button class="btn btn-soft" type="button" data-peer-copy-answer>'+(en?"Copy answer code":"Sao chép mã trả lời")+'</button>':"";
+    const start=duel.role==="host"?'<button class="btn btn-primary" type="button" data-peer-start'+(duel.remoteReady&&duel.connected?"":" disabled")+'>'+(en?"Start 90-second duel":"Bắt đầu lượt đấu 90 giây")+'</button>':(duel.role==="guest"&&!duel.active&&!duel.finished?'<p class="feature-note">'+(en?"Waiting for the host to start the round…":"Đang chờ chủ phòng bắt đầu…")+'</p>':"");
+    const result=duel.finished?'<div class="rush-result"><strong>'+(en?"Your score: ":"Điểm của bạn: ")+duel.playerScore+'</strong><span>'+(en?"Friend: ":"Bạn chơi: ")+duel.opponentScore+'</span></div>':"";
+    return '<section class="card peer-duel-card"><span class="eyebrow eyebrow-soft">'+(en?"WEBRTC FRIEND DUEL":"ĐẤU BẠN QUA WEBRTC")+'</span><h3>'+(en?"90-second puzzle race":"Đua giải câu đố trong 90 giây")+'</h3><p class="follow-status" role="status" aria-live="polite">'+escapeHtml(duel.status||"")+'</p>'+share+answer+start+result+'<div class="duel-score-bar"><strong>'+(en?"You ":"Bạn ")+duel.playerScore+'</strong><span>VS</span><strong>'+(en?"Friend ":"Bạn chơi ")+duel.opponentScore+'</strong></div><button class="btn btn-soft" type="button" data-peer-stop>'+(en?"Close duel":"Đóng lượt đấu")+'</button><p class="feature-note">'+(en?"Requires HTTPS and a network that permits direct WebRTC connections. Some strict NATs may block peer-to-peer links; use the local bot in that case.":"Cần HTTPS và mạng cho phép kết nối WebRTC trực tiếp. Một số NAT nghiêm ngặt có thể chặn; khi đó hãy dùng chế độ đấu bot.")+'</p></section>';
+  }
   function renderPuzzleDuelRoute(){
     const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en";
-    if(!puzzleDuel?.active){host.innerHTML='<section class="card puzzle-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"PUZZLE DUEL":"ĐẤU CỜ THẾ")+'</span><h3>'+(en?"Race a local bot":"Đua giải câu đố với Bot")+'</h3><p>'+(en?"Solve a sequence before a simulated opponent. Results stay on this device.":"Cùng giải câu đố trong 90 giây với đối thủ mô phỏng; kết quả lưu trên thiết bị.")+'</p></div><div class="puzzle-rating-pill"><strong>'+(Number(store.get("h2c-duel-best","0"))||0)+'</strong><span>'+(en?"best score":"điểm cao nhất")+'</span></div></section><div class="card duel-setup"><label class="field-label" for="duelBotElo">'+(en?"Opponent strength":"Elo đối thủ")+'</label><input id="duelBotElo" type="range" min="250" max="2500" step="50" value="1200"><span id="duelBotEloValue">1200 Elo</span><button class="btn btn-primary" type="button" data-duel-start>'+(en?"Start 90-second duel":"Bắt đầu đấu 90 giây")+'</button></div>'+(puzzleDuel?.finished?'<div class="card rush-result"><strong>'+(en?"Your score: ":"Điểm của bạn: ")+puzzleDuel.playerScore+'</strong><span>'+(en?"Bot: ":"Bot: ")+puzzleDuel.botScore+'</span></div>':"");return;}
-    const extra='<div class="duel-score-bar"><strong>'+(en?"You ":"Bạn ")+puzzleDuel.playerScore+'</strong><span>VS</span><strong>H2C Bot · '+puzzleDuel.botElo+" · "+puzzleDuel.botScore+'</strong><span class="duel-timer" id="duelTimer">'+puzzleDuel.seconds+'</span></div>';
-    mountPuzzlePanel(en?"90-SECOND DUEL":"ĐẤU CỜ THẾ · 90 GIÂY",en?"Solve before the bot's timer expires.":"Giải trước khi bộ đếm của Bot về 0.",extra,false);
+    if(puzzlePeerDuel?.active){const duel=puzzlePeerDuel,extra='<div class="duel-score-bar"><strong>'+(en?"You ":"Bạn ")+duel.playerScore+'</strong><span>VS</span><strong>'+(en?"Friend ":"Bạn chơi ")+duel.opponentScore+'</strong><span class="duel-timer" id="friendDuelTimer">'+duel.seconds+'</span></div>';mountPuzzlePanel(en?"FRIEND PUZZLE DUEL":"ĐẤU CÂU ĐỐ VỚI BẠN",en?"Solve the shared puzzle set before time runs out.":"Giải bộ câu đố chung trước khi hết giờ.",extra,false);return;}
+    if(puzzleDuel?.active){const extra='<div class="duel-score-bar"><strong>'+(en?"You ":"Bạn ")+puzzleDuel.playerScore+'</strong><span>VS</span><strong>H2C Bot · '+puzzleDuel.botElo+" · "+puzzleDuel.botScore+'</strong><span class="duel-timer" id="duelTimer">'+puzzleDuel.seconds+'</span></div>';mountPuzzlePanel(en?"90-SECOND DUEL":"ĐẤU CỜ THẾ · 90 GIÂY",en?"Solve before the bot's timer expires.":"Giải trước khi bộ đếm của Bot về 0.",extra,false);return;}
+    const best=Number(store.get("h2c-duel-best","0"))||0,local='<section class="card puzzle-intro"><div><span class="eyebrow eyebrow-soft">'+(en?"PUZZLE DUEL":"ĐẤU CỜ THẾ")+'</span><h3>'+(en?"Race a local bot":"Đua giải câu đố với Bot")+'</h3><p>'+(en?"Solve a sequence before a simulated opponent. Results stay on this device.":"Cùng giải câu đố trong 90 giây với đối thủ mô phỏng; kết quả lưu trên thiết bị.")+'</p></div><div class="puzzle-rating-pill"><strong>'+best+'</strong><span>'+(en?"best score":"điểm cao nhất")+'</span></div></section><div class="card duel-setup"><label class="field-label" for="duelBotElo">'+(en?"Opponent strength":"Elo đối thủ")+'</label><input id="duelBotElo" type="range" min="250" max="2500" step="50" value="1200"><span id="duelBotEloValue">1200 Elo</span><button class="btn btn-primary" type="button" data-duel-start>'+(en?"Start 90-second duel":"Bắt đầu đấu 90 giây")+'</button></div>'+(puzzleDuel?.finished?'<div class="card rush-result"><strong>'+(en?"Your score: ":"Điểm của bạn: ")+puzzleDuel.playerScore+'</strong><span>H2C Bot: '+puzzleDuel.botScore+'</span></div>':"");
+    host.innerHTML=local+renderFriendDuelCard(en);
   }
 
   function loadVariantTools(){if(!variantToolsPromise)variantToolsPromise=import("./variant-runtime.mjs").catch(error=>{variantToolsPromise=null;throw error;});return variantToolsPromise;}
@@ -821,9 +927,102 @@
     const rows=state.items.map(item=>{const streamer=item.streamer||{},name=String(item.name||streamer.name||item.id||"Streamer"),url=[streamer.twitch,streamer.youtube].map(value=>{try{const link=new URL(value);return link.protocol==="https:"&&["twitch.tv","youtube.com","youtu.be"].some(host=>link.hostname===host||link.hostname.endsWith("."+host))?link.href:"";}catch(_){return "";}}).find(Boolean)||"https://lichess.org/@/"+encodeURIComponent(name);return '<article class="card streamer-row"><div class="streamer-avatar" aria-hidden="true">'+escapeHtml(name.slice(0,2).toUpperCase())+'</div><div class="streamer-copy"><strong>'+escapeHtml(name)+'</strong><span>'+escapeHtml(String(streamer.headline||item.title||item.stream?.status||(en?"Live chess stream":"Đang phát cờ vua")))+'</span></div><span class="live-pill">● LIVE</span><a class="btn btn-soft" href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer">'+(en?"Open channel":"Mở kênh")+' ↗</a></article>';}).join("");
     host.innerHTML='<div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">'+(en?"LIVE CREATORS":"KÊNH ĐANG PHÁT")+'</span><h3>'+(en?"Chess streamers":"Streamer cờ vua")+'</h3></div>'+followRefresh("streamers",en)+'</div>'+followStatus("streamers",en)+'<div class="streamer-list">'+(rows||'<article class="card empty-feature"><h3>'+(en?"No public streamers listed":"Chưa có streamer công khai")+'</h3><p>'+(en?"The public list can be empty while channels are offline.":"Danh sách có thể trống khi các kênh đang ngoại tuyến.")+'</p></article>')+'</div><p class="feature-note">'+(en?"Channel links open on the creator's own platform. How2Chess does not embed their video.":"Liên kết mở trên nền tảng của streamer. How2Chess không nhúng video.")+'</p>';
   }
+  async function startLichessOAuth(){
+    try{const api=await import("./lichess-board.mjs"),redirectUri=new URL(location.pathname,location.origin).href,request=await api.createPkceRequest({redirectUri});sessionStorage.setItem("h2c-lichess-verifier",request.verifier);sessionStorage.setItem("h2c-lichess-state",request.state);location.assign(request.authorizationUrl);}
+    catch(error){lichessStatus=(settings.language==="en"?"Could not start Lichess sign-in: ":"Không mở được đăng nhập Lichess: ")+(error?.message||"Web Crypto unavailable");renderPlayNowRoute();}
+  }
+  async function finishLichessOAuthCallback(){
+    const params=new URLSearchParams(location.search);if(!params.has("code")&&!params.has("error"))return;
+    try{const api=await import("./lichess-board.mjs"),code=api.parseOAuthCallback(location.href,sessionStorage.getItem("h2c-lichess-state")),verifier=sessionStorage.getItem("h2c-lichess-verifier");if(!verifier)throw new Error("The sign-in verifier is missing. Start again.");const redirectUri=new URL(location.pathname,location.origin).href,token=await api.exchangePkceCode({code,verifier,redirectUri});lichessToken=token.access_token;sessionStorage.setItem("h2c-lichess-token",lichessToken);const account=await api.getAccount(lichessToken);lichessAccount=account.username||account.id||"Lichess player";sessionStorage.setItem("h2c-lichess-account",lichessAccount);lichessStatus=(settings.language==="en"?"Connected as ":"Đã kết nối tài khoản ")+lichessAccount;startLichessEventListener();}
+    catch(error){lichessStatus=(settings.language==="en"?"Lichess sign-in failed: ":"Đăng nhập Lichess lỗi: ")+(error?.message||"unknown error");}
+    finally{sessionStorage.removeItem("h2c-lichess-verifier");sessionStorage.removeItem("h2c-lichess-state");for(const key of ["code","state","scope","error","error_description"])params.delete(key);const query=params.toString();history.replaceState(null,"",location.pathname+(query?"?"+query:"")+"#/play");}
+    navigateSideRoute("play");
+  }
+  function isLichessFairPlayLockActive(){return !!(lichessOnlineGame&&!lichessOnlineGame.finished);}
+  function stopOnlineEngineWork(){if(currentJob)stopEngine();}
+  async function startLichessEventListener(){
+    if(!lichessToken||lichessEventController)return;
+    const api=await import("./lichess-board.mjs"),controller=new AbortController();lichessEventController=controller;
+    (async()=>{
+      try{
+        const response=await api.openEventStream(lichessToken,{signal:controller.signal});lichessEventRetryMs=4000;
+        for await(const event of api.readNdjson(response,{signal:controller.signal})){
+          if(event.gameStart?.id){lichessSeekController?.abort();lichessSeekController=null;startLichessBoardGame(event.gameStart.id);}
+          if(event.challenge){lichessIncomingChallenge=event.challenge;lichessStatus=(settings.language==="en"?"Incoming challenge from ":"Có lời mời đấu từ ")+(event.challenge.challenger?.name||"Lichess player");if(activeSideRoute==="play")renderPlayNowRoute();}
+          if(event.challengeCanceled?.id&&lichessIncomingChallenge?.id===event.challengeCanceled.id){lichessIncomingChallenge=null;if(activeSideRoute==="play")renderPlayNowRoute();}
+        }
+      } catch(error){
+        if(!controller.signal.aborted){const message=error?.message||"network error";lichessStatus=(settings.language==="en"?"Lichess event stream disconnected: ":"Mất kết nối sự kiện Lichess: ")+message;lichessEventRetryMs=/\(429\)/.test(message)?60000:Math.min(30000,Math.max(4000,lichessEventRetryMs*2));}
+      } finally {
+        if(lichessEventController===controller)lichessEventController=null;
+        if(activeSideRoute==="play")renderPlayNowRoute();
+        if(!controller.signal.aborted&&lichessToken)setTimeout(()=>startLichessEventListener(),lichessEventRetryMs);
+      }
+    })();
+  }
+  function replayLichessMoves(fen,moves){const game=new C(fen&&fen!=="startpos"?fen:undefined);for(const uci of String(moves||"").split(/\s+/).filter(Boolean)){try{const move=game.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]||"q"});if(!move)break;}catch(_){break;}}return game;}
+  function persistLichessFinishedGame(){
+    const online=lichessOnlineGame;if(!online||online.saved||!online.finished)return;online.saved=true;const winner=online.winner==="white"?"w":online.winner==="black"?"b":null,result=winner===null?"draw":winner===online.myColor?"win":"loss",history=online.game.history({verbose:true}),replay=new C(online.startFen&&online.startFen!=="startpos"?online.startFen:undefined),moves=history.map(move=>{replay.move({from:move.from,to:move.to,promotion:move.promotion});return {san:move.san,from:move.from,to:move.to,promotion:move.promotion||"",uci:move.from+move.to+(move.promotion||""),color:move.color,fen:replay.fen()};}),game={id:"lichess-"+online.id,date:new Date().toISOString(),botId:"lichess",botName:online.opponent||"Lichess opponent",botElo:0,playerColor:online.myColor,result,reason:online.status||"finished",moves,moveCount:moves.length,startFen:online.startFen,finalFen:online.game.fen(),ratingBefore:playerRating,ratingAfter:playerRating,accuracy:null};game.pgn=createGamePgn(game).replace("How2Chess Bot Game","Lichess Online Game").replace("How2Chess local","lichess.org");savedGames.unshift(game);savedGames=savedGames.slice(0,2000);persistGameHistory();
+  }
+  async function startLichessBoardGame(gameId){
+    if(!lichessToken||!C||(lichessOnlineGame?.id===gameId&&lichessGameController))return;lichessSeekController?.abort();lichessSeekController=null;stopOnlineEngineWork();lichessGameController?.abort();const controller=new AbortController();lichessGameController=controller;lichessOnlineGame={id:gameId,game:new C(),startFen:START_FEN,myColor:"w",opponent:"Lichess opponent",whiteName:"White",blackName:"Black",status:"Connecting…",finished:false,moves:"",wtime:null,btime:null,pending:false};lichessStatus=settings.language==="en"?"Live Lichess game connected. Engine help is disabled by fair-play rules.":"Đã kết nối ván Lichess. Quy tắc fair-play cấm dùng engine hỗ trợ.";if(activeSideRoute==="play")renderPlayNowRoute();
+    try{const api=await import("./lichess-board.mjs"),response=await api.openBoardGameStream(lichessToken,gameId,{signal:controller.signal});for await(const event of api.readNdjson(response,{signal:controller.signal})){
+      if(event.type==="gameFull"){const initialFen=event.fen||"startpos",state=event.state||{},game=replayLichessMoves(initialFen,state.moves),username=(lichessAccount||"").toLowerCase(),myColor=String(event.white?.id||"").toLowerCase()===username?"w":String(event.black?.id||"").toLowerCase()===username?"b":"w";lichessOnlineGame={...lichessOnlineGame,game,startFen:initialFen,myColor,whiteName:event.white?.name||event.white?.id||"White",blackName:event.black?.name||event.black?.id||"Black",opponent:myColor==="w"?(event.black?.name||event.black?.id):(event.white?.name||event.white?.id),status:state.status||"started",finished:!!(state.status&&state.status!=="started"),moves:state.moves||"",wtime:state.wtime,btime:state.btime};}
+      else if(event.type==="gameState"&&lichessOnlineGame){const game=replayLichessMoves(lichessOnlineGame.startFen,event.moves);lichessOnlineGame={...lichessOnlineGame,game,status:event.status||"started",winner:event.winner||null,finished:!!(event.status&&event.status!=="started"),moves:event.moves||"",wtime:event.wtime,btime:event.btime};}
+      if(lichessOnlineGame?.finished)persistLichessFinishedGame();if(activeSideRoute==="play")renderPlayNowRoute();}}
+    catch(error){if(!controller.signal.aborted)lichessStatus=(settings.language==="en"?"Could not open Lichess game: ":"Không mở được ván Lichess: ")+(error?.message||"network error");}
+    finally{if(lichessGameController===controller)lichessGameController=null;if(activeSideRoute==="play")renderPlayNowRoute();}
+  }
+  async function sendLichessChallenge(){
+    if(!lichessToken){await startLichessOAuth();return;}try{startLichessEventListener();const api=await import("./lichess-board.mjs"),clock=($("#lichessClock")?.value||"600+0").split("+").map(Number),result=await api.createChallenge(lichessToken,$("#lichessUsername")?.value,{baseSeconds:clock[0]||600,incrementSeconds:clock[1]||0}),challenge=result.challenge||result;lichessChallengeUrl=challenge.url||("https://lichess.org/"+challenge.id);lichessStatus=settings.language==="en"?"Challenge sent. Share the link; direct challenges expire after 20 seconds.":"Đã gửi lời mời. Chia sẻ liên kết; lời mời trực tiếp sẽ hết hạn sau 20 giây.";renderPlayNowRoute();}
+    catch(error){lichessStatus=(settings.language==="en"?"Could not send challenge: ":"Không gửi được lời mời: ")+(error?.message||"network error");renderPlayNowRoute();}
+  }
+  async function acceptLichessIncomingChallenge(){
+    if(!lichessToken||!lichessIncomingChallenge)return;
+    const challengeId=lichessIncomingChallenge.id;
+    try{
+      const api=await import("./lichess-board.mjs");await api.acceptChallenge(lichessToken,challengeId);
+      lichessStatus=settings.language==="en"?"Challenge accepted; waiting for Lichess to start the game…":"Đã nhận lời; đang chờ Lichess bắt đầu ván…";lichessIncomingChallenge=null;
+    }catch(error){lichessStatus=(settings.language==="en"?"Could not accept challenge: ":"Không nhận được lời mời: ")+(error?.message||"network error");}
+    renderPlayNowRoute();
+  }
+  async function startLichessRandomSeek(){
+    if(!lichessToken)return startLichessOAuth();if(lichessSeekController)return;
+    const controller=new AbortController();lichessSeekController=controller;
+    try{
+      startLichessEventListener();const api=await import("./lichess-board.mjs"),clock=(document.querySelector("#lichessClock")?.value||"600+0").split("+").map(Number);
+      lichessStatus=settings.language==="en"?"Looking for a casual opponent…":"Đang tìm đối thủ ván không xếp hạng…";renderPlayNowRoute();
+      const response=await api.openBoardSeek(lichessToken,{minutes:clock[0]/60||10,incrementSeconds:clock[1]||0,signal:controller.signal});
+      if(!response.body?.getReader)throw new Error("Streaming response is unavailable in this browser.");const reader=response.body.getReader();
+      while(!controller.signal.aborted){const {done}=await reader.read();if(done)break;}
+      try{reader.releaseLock();}catch(_){}
+      if(lichessSeekController===controller){lichessSeekController=null;lichessStatus=settings.language==="en"?"The seek ended. You can try again.":"Lượt tìm đối thủ đã kết thúc. Bạn có thể thử lại.";renderPlayNowRoute();}
+    }catch(error){
+      if(!controller.signal.aborted)lichessStatus=(settings.language==="en"?"Could not start seek: ":"Không tìm được đối thủ: ")+(error?.message||"network error");
+      if(lichessSeekController===controller)lichessSeekController=null;
+      if(activeSideRoute==="play")renderPlayNowRoute();
+    }
+  }
+  async function playLichessSquare(square){
+    const online=lichessOnlineGame;if(!online||online.finished||online.pending||online.game.turn()!==online.myColor)return;const piece=online.game.get(square);
+    if(lichessSelectedSquare&&lichessLegalTargets.includes(square)){const move=online.game.moves({square:lichessSelectedSquare,verbose:true}).find(item=>item.to===square),uci=move?move.from+move.to+(move.promotion||""):"";if(!uci)return;online.pending=true;renderPlayNowRoute();try{const api=await import("./lichess-board.mjs");await api.sendBoardMove(lichessToken,online.id,uci);lichessSelectedSquare=null;lichessLegalTargets=[];}catch(error){lichessStatus=(settings.language==="en"?"Move was not sent: ":"Chưa gửi được nước đi: ")+(error?.message||"network error");}finally{online.pending=false;renderPlayNowRoute();}return;}
+    if(piece&&piece.color===online.myColor){lichessSelectedSquare=square;lichessLegalTargets=online.game.moves({square,verbose:true}).map(move=>move.to);}else{lichessSelectedSquare=null;lichessLegalTargets=[];}renderPlayNowRoute();
+  }
+  function renderLichessOnlineBoard(en){
+    const online=lichessOnlineGame;if(!online)return "";const game=online.game,parts=puzzleBoardParts(fenBoard(game.fen()),online.myColor,{selected:lichessSelectedSquare,legalTargets:lichessLegalTargets,checkedColor:game.in_check()?game.turn():null},"data-l2-square"),turnText=online.finished?(en?"Game finished · ":"Ván đã kết thúc · ")+online.status:online.pending?(en?"Sending move…":"Đang gửi nước đi…"):game.turn()===online.myColor?(en?"Your move":"Đến lượt bạn"):(en?"Opponent to move":"Đến lượt đối thủ"),moves=game.history().slice(-20).join(" "),whiteClock=online.wtime==null?"":formatClock(online.wtime),blackClock=online.btime==null?"":formatClock(online.btime);
+    return '<section class="card lichess-game-card"><div class="feature-section-head"><div><span class="eyebrow eyebrow-soft">LICHESS BOARD API · CASUAL</span><h3>'+escapeHtml(online.whiteName)+' — '+escapeHtml(online.blackName)+'</h3><p>'+escapeHtml(turnText)+'</p></div><a class="btn btn-soft" href="https://lichess.org/'+encodeURIComponent(online.id)+'" target="_blank" rel="noopener noreferrer">'+(en?"Open on Lichess ↗":"Mở trên Lichess ↗")+'</a></div><div class="online-clocks"><strong>'+whiteClock+'</strong><strong>'+blackClock+'</strong></div><div class="puzzle-board-area"><div class="board-frame puzzle-board-frame"><div class="board-coords ranks" aria-hidden="true">'+parts.ranks+'</div><div class="board-grid" role="grid" aria-label="Lichess chessboard">'+parts.squares+'</div><div class="board-coords files" aria-hidden="true">'+parts.files+'</div></div></div><div class="online-move-list">'+escapeHtml(moves||(en?"No moves yet.":"Chưa có nước đi."))+'</div>'+(!online.finished?'<button type="button" class="btn btn-soft" data-l2-resign'+(online.pending?" disabled":"")+'>'+(en?"Resign":"Xin thua")+'</button>':"")+'</section><p class="feature-note">'+(en?"No engine, opening book, or coach hints are available during a Lichess game, following Lichess fair-play rules.":"Trong ván Lichess không bật engine, khai cuộc hay gợi ý Coach để tuân thủ fair-play.")+'</p>';
+  }
   function renderPlayNowRoute(){
     const host=$("#featureRouteBody");if(!host)return;const en=settings.language==="en",nearest=BOT_CATALOG.reduce((best,bot)=>Math.abs(bot.elo-playerRating)<Math.abs(best.elo-playerRating)?bot:best,BOT_CATALOG[0]),color=store.get("h2c-quick-color",botPlayerColor),clock=store.get("h2c-quick-clock",botClockChoice);
-    host.innerHTML='<section class="card quick-play-card"><span class="eyebrow eyebrow-soft">'+(en?"QUICK MATCH":"GHÉP VÁN NHANH")+'</span><h3>'+(en?"Your closest local opponent":"Đối thủ gần mức của bạn nhất")+'</h3><div class="quick-bot"><span class="bot-avatar">'+botAvatarSVG(nearest,BOT_CATALOG.indexOf(nearest))+'</span><div><strong>'+escapeHtml(en?nearest.nameEn:nearest.name)+'</strong><span>'+nearest.elo+' Elo · '+escapeHtml(en?nearest.personalityEn:nearest.personality)+'</span></div></div><div class="bot-settings-grid"><label class="field-label">'+(en?"Play as":"Bạn cầm quân")+'<select id="quickPlayColor"><option value="w"'+(color==="w"?" selected":"")+'>'+(en?"White":"Trắng")+'</option><option value="b"'+(color==="b"?" selected":"")+'>'+(en?"Black":"Đen")+'</option><option value="random"'+(color==="random"?" selected":"")+'>'+(en?"Random":"Ngẫu nhiên")+'</option></select></label><label class="field-label">'+(en?"Clock":"Đồng hồ")+'<select id="quickPlayClock">'+[["none",en?"Unlimited":"Không giới hạn"],["5+0","5+0"],["10+0","10+0"],["15+10","15+10"]].map(([value,label])=>'<option value="'+value+'"'+(clock===value?" selected":"")+'>'+label+'</option>').join("")+'</select></label></div><button type="button" class="btn btn-primary quick-play-start" data-quick-play>'+(en?"Play now":"Chơi ngay")+' →</button><p class="feature-note">'+(en?"Starts an offline game against your local bot. No account or network is needed.":"Bắt đầu ván ngoại tuyến với bot cục bộ. Không cần tài khoản hay mạng.")+'</p><a href="#/bot" class="text-link">'+(en?"Browse all bots":"Xem danh sách bot")+' →</a></section>';
+    const auth=lichessToken?'<div class="card lichess-account-card"><strong>'+escapeHtml(lichessAccount||"Lichess account")+'</strong><button type="button" class="btn btn-soft" data-l2-disconnect>'+(en?"Disconnect":"Ngắt kết nối")+'</button></div>':'<button type="button" class="btn btn-soft" data-l2-connect>'+(en?"Connect Lichess securely":"Kết nối Lichess an toàn")+'</button>';
+    const controls=lichessToken?'<div class="bot-settings-grid"><label class="field-label">'+(en?"Opponent username":"Tên người chơi")+'<input id="lichessUsername" autocomplete="off" maxlength="30" placeholder="Lichess username"></label><label class="field-label">'+(en?"Casual clock":"Đồng hồ không xếp hạng")+'<select id="lichessClock"><option value="300+0">5+0</option><option value="600+0" selected>10+0</option><option value="900+10">15+10</option></select></label></div><div class="puzzle-actions"><button type="button" class="btn btn-primary" data-l2-challenge>'+(en?"Challenge player":"Mời người chơi")+'</button><button type="button" class="btn btn-soft" data-l2-seek'+(lichessSeekController?" disabled":"")+'>'+(lichessSeekController?(en?"Searching…":"Đang tìm…"):(en?"Find random opponent":"Tìm đối thủ ngẫu nhiên"))+'</button>'+(lichessSeekController?'<button type="button" class="btn btn-soft" data-l2-stop-seek>'+(en?"Cancel search":"Hủy tìm")+'</button>':"")+'</div>':"";
+    const incoming=lichessIncomingChallenge?'<div class="card incoming-challenge"><span>'+(en?"Challenge from ":"Lời mời từ ")+escapeHtml(lichessIncomingChallenge.challenger?.name||"Lichess player")+'</span><button type="button" class="btn btn-primary" data-l2-accept>'+(en?"Accept":"Nhận lời")+'</button></div>':"";
+    const challengeLink=lichessChallengeUrl?'<p><a href="'+escapeHtml(lichessChallengeUrl)+'" target="_blank" rel="noopener noreferrer">'+(en?"Open or share the challenge ↗":"Mở hoặc chia sẻ lời mời ↗")+'</a></p>':"";
+    const status=lichessStatus?'<p class="follow-status" role="status" aria-live="polite">'+escapeHtml(lichessStatus)+'</p>':"";
+    if(lichessToken&&!lichessAccount&&!lichessAccountLoading){lichessAccountLoading=true;import("./lichess-board.mjs").then(api=>api.getAccount(lichessToken)).then(account=>{lichessAccount=account.username||account.id||"Lichess player";sessionStorage.setItem("h2c-lichess-account",lichessAccount);startLichessEventListener();if(activeSideRoute==="play")renderPlayNowRoute();}).catch(error=>{lichessStatus=(en?"Could not verify this Lichess session: ":"Không xác minh được phiên Lichess: ")+(error?.message||"session expired");}).finally(()=>{lichessAccountLoading=false;});}
+    const online=lichessOnlineGame?renderLichessOnlineBoard(en):"";
+    const l2='<section class="card lichess-connect-card"><span class="eyebrow eyebrow-soft">'+(en?"PLAY ONLINE":"CHƠI TRỰC TUYẾN")+'</span><h3>'+(en?"Play a friend on Lichess":"Đấu bạn qua Lichess")+'</h3><p>'+(en?"Use the official Board API for casual games. Engine assistance stays disabled.":"Dùng Board API chính thức cho ván không xếp hạng. Tắt hỗ trợ engine trong ván.")+'</p>'+auth+controls+incoming+challengeLink+status+'</section>'+online;
+    host.innerHTML=l2+'<section class="card quick-play-card"><span class="eyebrow eyebrow-soft">'+(en?"LOCAL QUICK MATCH":"GHÉP VÁN NHANH CỤC BỘ")+'</span><h3>'+(en?"Your closest local opponent":"Đối thủ gần mức của bạn nhất")+'</h3><div class="quick-bot"><span class="bot-avatar">'+botAvatarSVG(nearest,BOT_CATALOG.indexOf(nearest))+'</span><div><strong>'+escapeHtml(en?nearest.nameEn:nearest.name)+'</strong><span>'+nearest.elo+' Elo · '+escapeHtml(en?nearest.personalityEn:nearest.personality)+'</span></div></div><div class="bot-settings-grid"><label class="field-label">'+(en?"Play as":"Bạn cầm quân")+'<select id="quickPlayColor"><option value="w"'+(color==="w"?" selected":"")+'>'+(en?"White":"Trắng")+'</option><option value="b"'+(color==="b"?" selected":"")+'>'+(en?"Black":"Đen")+'</option><option value="random"'+(color==="random"?" selected":"")+'>'+(en?"Random":"Ngẫu nhiên")+'</option></select></label><label class="field-label">'+(en?"Clock":"Đồng hồ")+'<select id="quickPlayClock">'+[["none",en?"Unlimited":"Không giới hạn"],["5+0","5+0"],["10+0","10+0"],["15+10","15+10"]].map(([value,label])=>'<option value="'+value+'"'+(clock===value?" selected":"")+'>'+label+'</option>').join("")+'</select></label></div><button type="button" class="btn btn-primary quick-play-start" data-quick-play'+(isLichessFairPlayLockActive()?" disabled":"")+'>'+(en?"Play now":"Chơi ngay")+' →</button><p class="feature-note">'+(en?"Starts an offline game against your local bot. No account or network is needed.":"Bắt đầu ván ngoại tuyến với bot cục bộ. Không cần tài khoản hay mạng.")+'</p><a href="#/bot" class="text-link">'+(en?"Browse all bots":"Xem danh sách bot")+' →</a></section>';
   }
   function escapeIcs(value){return String(value||"").replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;");}
   function downloadEventReminder(title,start,end){const begins=new Date(Number(start)),finish=Number(end)>Number(start)?new Date(Number(end)):new Date(begins.getTime()+3600000),stamp=date=>date.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//How2Chess//Event Reminder//EN","CALSCALE:GREGORIAN","BEGIN:VEVENT","UID:h2c-"+Date.now()+"@how2chess","DTSTAMP:"+stamp(new Date()),"DTSTART:"+stamp(begins),"DTEND:"+stamp(finish),"SUMMARY:"+escapeIcs(title),"END:VEVENT","END:VCALENDAR"];downloadTextFile("how2chess-event.ics",lines.join("\r\n"),"text/calendar;charset=utf-8");}
@@ -943,6 +1142,7 @@
     return false;
   }
   function startBotGame() {
+    if(isLichessFairPlayLockActive()){pushToast(settings.language==="en"?"Finish your Lichess game before starting another engine game.":"Hãy kết thúc ván Lichess trước khi chơi ván máy khác.");return;}
     if(botMatch&&!botMatch.finished){pushToast("Bạn đang có một ván chưa kết thúc. Hãy tiếp tục ván đó trước.");setScreen("h2c",true);return;}
     if(!C){pushToast("Không tải được chess.js. Hãy tải lại trang rồi thử tiếp.");return;}
     const bot=getBot(selectedBotId);
@@ -1007,6 +1207,14 @@
     downloadTextFile("how2chess-games.pgn",savedGames.slice().reverse().map(game=>game.pgn||createGamePgn(game)).join("\n"),"application/x-chess-pgn;charset=utf-8");
   }
   function handleFeatureClick(event) {
+    if(event.target.closest("[data-l2-connect]")){startLichessOAuth();return;}
+    if(event.target.closest("[data-l2-disconnect]")){lichessEventController?.abort();lichessSeekController?.abort();lichessGameController?.abort();lichessEventRetryMs=4000;lichessEventController=null;lichessSeekController=null;lichessGameController=null;lichessToken="";lichessAccount="";lichessOnlineGame=null;lichessIncomingChallenge=null;lichessChallengeUrl="";lichessStatus=settings.language==="en"?"Disconnected from Lichess.":"Đã ngắt kết nối Lichess.";for(const key of ["h2c-lichess-token","h2c-lichess-account","h2c-lichess-state","h2c-lichess-verifier"])try{sessionStorage.removeItem(key);}catch(_){}renderPlayNowRoute();return;}
+    if(event.target.closest("[data-l2-challenge]")){sendLichessChallenge();return;}
+    if(event.target.closest("[data-l2-accept]")){acceptLichessIncomingChallenge();return;}
+    if(event.target.closest("[data-l2-seek]")){startLichessRandomSeek();return;}
+    if(event.target.closest("[data-l2-stop-seek]")){if(lichessSeekController){lichessSeekController.abort();lichessSeekController=null;lichessStatus=settings.language==="en"?"Opponent search cancelled.":"Đã hủy tìm đối thủ.";renderPlayNowRoute();}return;}
+    const onlineSquare=event.target.closest("[data-l2-square]");if(onlineSquare){playLichessSquare(onlineSquare.dataset.l2Square);return;}
+    if(event.target.closest("[data-l2-resign]")){if(lichessOnlineGame&&!lichessOnlineGame.finished){import("./lichess-board.mjs").then(api=>api.resignBoardGame(lichessToken,lichessOnlineGame.id)).catch(error=>pushToast(error?.message||"Could not resign."));}return;}
     const variantStart=event.target.closest("[data-variant-start]");
     if(variantStart){startVariantGame(variantStart.dataset.variantStart);return;}
     const variantSquare=event.target.closest("[data-variant-square]");
@@ -1051,6 +1259,13 @@
     if(event.target.closest("[data-custom-save]")){saveCustomPuzzle();return;}
     if(event.target.closest("[data-custom-share]")){shareCustomPuzzle();return;}
     if(event.target.closest("[data-duel-start]")){startDuel($("#duelBotElo")?.value);return;}
+    if(event.target.closest("[data-peer-create]")){createFriendDuelInvite();return;}
+    if(event.target.closest("[data-peer-join]")){joinFriendDuelInvite();return;}
+    if(event.target.closest("[data-peer-apply-answer]")){applyFriendDuelAnswer();return;}
+    if(event.target.closest("[data-peer-start]")){startFriendDuel();return;}
+    if(event.target.closest("[data-peer-copy-invite]")){copyText(puzzlePeerDuel?.inviteUrl||"",settings.language==="en"?"Invite link copied.":"Đã sao chép liên kết mời.");return;}
+    if(event.target.closest("[data-peer-copy-answer]")){copyText(puzzlePeerDuel?.answerCode||"",settings.language==="en"?"Answer code copied.":"Đã sao chép mã trả lời.");return;}
+    if(event.target.closest("[data-peer-stop]")){closeFriendDuel();return;}
     const select=event.target.closest("[data-select-bot]");
     if(select){selectedBotId=select.dataset.selectBot;renderBotRoute();return;}
     if(event.target.closest("[data-start-bot]")){startBotGame();return;}
@@ -1117,6 +1332,7 @@
   }
   function toggleCoach() { setCoachEnabled(!coachEnabled); }
   function analyzeForCoach(snapshotOnly) {
+    if(isLichessFairPlayLockActive()){pushToast(settings.language==="en"?"Engine and Coach help are disabled during a live Lichess game.":"Trong ván Lichess đang diễn ra, không thể dùng Engine hoặc Coach.");return;}
     const previous=settings.analysisEngine;settings.analysisEngine="stockfish";
     analyze(false,false);
     if(currentJob&&snapshotOnly)currentJob.coachSnapshotOnly=true;
@@ -1536,6 +1752,7 @@
     engineWorker.postMessage("go movetime "+Math.round(currentJob.coachSnapshotOnly?Math.min(1000,(Number(settings.think)||3)*1000):(Number(settings.think)||3)*1000));
   }
   function analyze(execute,playReply) {
+    if(isLichessFairPlayLockActive()){pushToast(settings.language==="en"?"Engine help is disabled during a live Lichess game.":"Trong ván Lichess đang diễn ra, không thể dùng engine hỗ trợ.");return;}
     const errors=legalCheck();
     if(errors.length){pushToast(errors[0]);return;}
     if(!C){setEngineError("Không tải được chess.js. Tải lại trang khi có mạng.");return;}
@@ -2041,6 +2258,7 @@
     step("offline cache",installServiceWorker);
     step("live follow events",()=>window.addEventListener("h2c-follow-updated",event=>{if(activeSideRoute==="featured"&&event.detail?.key==="broadcasts"||activeSideRoute==="events"&&["broadcasts","tournaments"].includes(event.detail?.key)||activeSideRoute==="streamers"&&event.detail?.key==="streamers")renderActiveFeatureRoute();}));
     step("initial screen",()=>{if(new URLSearchParams(location.search).get("app")==="1")setScreen("h2c",true);else routeFromHash();});
+    step("Lichess PKCE callback",()=>{if(new URLSearchParams(location.search).has("code")||new URLSearchParams(location.search).has("error"))finishLichessOAuthCallback();});
     step("game history",hydrateGameHistory);
     if(!startupOK)runStartupStep("startup notice",()=>pushToast(settings.language==="en"?"Some controls could not load. Navigation is still available.":"Một số điều khiển chưa tải được. Bạn vẫn có thể điều hướng."));
   }

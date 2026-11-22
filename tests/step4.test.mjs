@@ -24,12 +24,17 @@ test("Lichess daily puzzle has a bounded offline-aware fetch and a local fallbac
   assert.match(app, /function saveDailySolved\(/);
 });
 
-test("Puzzle CSV import streams a capped subset and applies the setup move", () => {
-  assert.match(app, /file\.stream\(\)\.getReader\(\)/);
+test("Puzzle CSV and compressed Zstandard imports stream a capped subset", () => {
+  assert.match(app, /file\.stream\(\)/);
+  assert.match(app, /endsWith\("\.zst"\)/);
+  assert.match(app, /createZstdReadableStream/);
+  assert.match(app, /accept="\.csv,\.zst,text\/csv,application\/zstd"/);
   assert.match(app, /Math\.min\(300000,Number\(\$\("#puzzleImportLimit"\)/);
   assert.match(app, /game\.move\(\{from:first\.slice\(0,2\),to:first\.slice\(2,4\)/);
   assert.match(app, /solution:moves\.slice\(1\)/);
   assert.match(app, /function savePuzzleBatch\(/);
+  const importUtils = readFileSync(new URL("../puzzle-import-utils.mjs", import.meta.url), "utf8");
+  assert.match(importUtils, /new Decompress/);
 });
 
 test("Puzzle solving supports legal move checks, three hint levels and local rating", () => {
@@ -63,6 +68,6 @@ test("Puzzle screens and the H2C board use one square renderer with mobile layou
 });
 
 test("Puzzle updates invalidate offline service-worker assets", () => {
-  assert.match(sw, /const CACHE_NAME = "how2chess-v18"/);
+  assert.match(sw, /const CACHE_NAME = "how2chess-v21"/);
 });
 

@@ -1,5 +1,15 @@
 # How2Chess — Chess Calculator
 
+## Play online with Lichess
+
+- Connect from Play now using OAuth PKCE with only the board:play permission. This works on GitHub Pages without a How2Chess server.
+- Challenge a Lichess username to a casual game or start an unrated random seek. Incoming challenges and game moves arrive over the official Board API streams.
+- Finished online games are saved to local history. The access token is kept in this browser tab's session storage and is excluded from backup exports.
+- Engine, opening-book, and Coach assistance stay disabled during live Lichess games to follow its fair-play rules.
+- The app uses documented Lichess routes, request timeouts, a 60-second pause after HTTP 429, and friendly offline errors.
+
+The Puzzle Library imports the official CC0 puzzle database from CSV or compressed CSV.ZST. Zstandard data is decompressed in a stream and the app stores at most 100,000 or 300,000 selected puzzles in IndexedDB.
+
 How2Chess is a static, mobile-first PWA for arranging chess positions, checking legal moves, analyzing with Stockfish, and saving positions locally. The same source supports a browser install and an Android wrapper built with Capacitor.
 
 ## What is included
@@ -9,7 +19,7 @@ How2Chess is a static, mobile-first PWA for arranging chess positions, checking 
 - sw.js, manifest.webmanifest, icons/: PWA metadata and offline asset cache.
 - scripts/copy-web.mjs, capacitor.config.json: prepares the static files for Android packaging.
 
-The interface and local app data have no backend. Saved boards and preferences use localStorage. Stockfish and chess.js are loaded from pinned public CDNs when needed; the service worker attempts to cache those files for repeat offline use after the first successful connection.
+The interface and local app data have no backend. Saved boards and preferences use localStorage; games and puzzles use IndexedDB. chess.js and ONNX Runtime Web are bundled locally. Stockfish WASM and the chessops variant module are fetched from pinned public CDNs and cached by the service worker when available.
 
 The Resources card is hidden in the app interface. License notices remain in `LICENSES.md` and the upstream notices bundled with dependencies.
 
@@ -88,11 +98,11 @@ The Tournaments screen runs local round-robin (two legs) or five-round Arena sim
 
 See LICENSES.md before redistributing a build. Stockfish.js contains GPLv3 engine code; comply with GPLv3 when you distribute a bundled engine. chess.js 0.10.3 is provided by cdnjs and is distributed under its upstream BSD-style license. The original How2Chess UI, board illustrations, and inline piece artwork are project code.
 
-The optional puzzle CSV import uses the public Lichess puzzle database, released under CC0. Download the CSV archive from [database.lichess.org](https://database.lichess.org/#puzzles), decompress it to CSV, then choose a 100,000 or 300,000 puzzle import limit in the Puzzle Library. The browser reads rows as a stream and stores accepted puzzles in IndexedDB. The Daily Puzzle requests the public [Lichess daily puzzle API](https://lichess.org/api/puzzle/daily), caches the response locally, and uses a deterministic local puzzle when offline. How2Chess is independent and is not affiliated with Lichess.
+The optional puzzle CSV or Zstandard-compressed CSV import uses the public Lichess puzzle database, released under CC0. Download the archive from [database.lichess.org](https://database.lichess.org/#puzzles), choose a 100,000 or 300,000 puzzle import limit, and select the CSV or CSV.ZST file in the Puzzle Library. The browser reads and decompresses rows as a stream and stores accepted puzzles in IndexedDB. The Daily Puzzle requests the public [Lichess daily puzzle API](https://lichess.org/api/puzzle/daily), caches the response locally, and uses a deterministic local puzzle when offline. Online board play uses the OAuth PKCE and Board API documented at [lichess.org/api](https://lichess.org/api). How2Chess is independent and is not affiliated with Lichess.
 
 ## Suggested next upgrades
 
-- PGN game review with move-by-move accuracy and blunder explanations.
+- Deeper PGN review with engine-powered per-move accuracy and blunder explanations.
 - Position recognition from a board photo.
 - More engine profiles, time controls, and a move history panel.
 - Cloud sync or shareable study links (would require a backend).

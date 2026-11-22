@@ -1747,3 +1747,4 @@ if (typeof define !== 'undefined')
   define(function() {
     return Chess
   })
+
