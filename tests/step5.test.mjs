@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { chess960Backrank, chess960Fen, makeTournamentSchedule } from "../variant-utils.mjs";
+import { chess960Backrank, chess960Fen, makeSwissRound, makeTournamentSchedule } from "../variant-utils.mjs";
 
 const app = readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const css = readFileSync(new URL("../app.css", import.meta.url), "utf8");
@@ -51,6 +51,26 @@ test("Arena creates five rounds and handles a bye for an odd field", () => {
   assert.equal(schedule.filter(game => game.bye).length, 5);
 });
 
+test("Swiss rounds rank bots by points, avoid rematches, and rotate byes", () => {
+  const ids = ["a", "b", "c", "d", "e"], scores = Object.fromEntries(ids.map(id => [id, { points: 0 }]));
+  const matches = [], pairs = new Set(), byeCounts = Object.fromEntries(ids.map(id => [id, 0]));
+  for (let round = 1; round <= 5; round++) {
+    const current = makeSwissRound(ids, scores, matches, round);
+    assert.equal(current.filter(match => match.bye).length, 1);
+    assert.equal(current.filter(match => match.white && match.black).length, 2);
+    for (const match of current) {
+      if (match.bye) { byeCounts[match.bye]++; matches.push(match); continue; }
+      const key = [match.white, match.black].sort().join("|");
+      assert.ok(!pairs.has(key), `unexpected rematch ${key}`);
+      pairs.add(key); matches.push(match);
+      scores[match.white].points += round % 2 ? 1 : 0;
+      scores[match.black].points += round % 2 ? 0 : 1;
+    }
+  }
+  assert.equal(pairs.size, 10);
+  assert.deepEqual(Object.values(byeCounts).sort(), [1, 1, 1, 1, 1]);
+});
+
 test("Variant routes, rules, local bot, undo and pockets are connected to the shared board", () => {
   for (const id of ["variants", "tournaments"]) {
     assert.ok(app.includes('"id":"' + id + '"'));
@@ -70,7 +90,10 @@ test("Variant routes, rules, local bot, undo and pockets are connected to the sh
 
 test("Tournament screen supports local pairings, standings, progress, and saved results", () => {
   assert.match(app, /async function startLocalTournament\(/);
-  assert.match(app, /makeTournamentSchedule\(players\.map\(player=>player\.id\),format\)/);
+  assert.match(app, /tools\.makeTournamentSchedule\(ids,format\)/);
+  assert.match(app, /tools\.makeSwissRound\(ids,scores,tournamentState\.matches,round\)/);
+  assert.match(app, /value="swiss"/);
+  assert.match(app, /games:tournamentState\.matches\.filter\(match=>match\.white&&match\.black\)\.length/);
   assert.match(app, /function simulateTournamentGame\(/);
   assert.match(app, /function tournamentStandings\(/);
   assert.match(app, /store\.set\("h2c-tournaments"/);
@@ -80,7 +103,7 @@ test("Tournament screen supports local pairings, standings, progress, and saved 
 });
 
 test("PWA and static build include the variant modules and pinned chessops asset", () => {
-  assert.match(sw, /const CACHE_NAME = "how2chess-v17"/);
+  assert.match(sw, /const CACHE_NAME = "how2chess-v18"/);
   assert.match(sw, /\.\/variant-runtime\.mjs/);
   assert.match(sw, /https:\/\/esm\.sh\/chessops@0\.15\.1\?bundle/);
   assert.match(build, /"variant-runtime\.mjs"/);

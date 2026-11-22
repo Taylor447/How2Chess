@@ -27,7 +27,7 @@ test("Delete all data clears both How2Chess browser storage and IndexedDB stores
 });
 
 test("PWA cache invalidates older app bundles after a backup update", () => {
-  assert.match(sw, /const CACHE_NAME = "how2chess-v17"/);
-  assert.match(sw, /app\.js\?v=20261122\.9/);
-  assert.match(html, /app\.js\?v=20261122\.9/);
+  assert.match(sw, /const CACHE_NAME = "how2chess-v18"/);
+  assert.match(sw, /app\.js\?v=20261122\.10/);
+  assert.match(html, /app\.js\?v=20261122\.10/);
 });

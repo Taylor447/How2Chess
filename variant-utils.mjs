@@ -96,3 +96,55 @@ export function makeTournamentSchedule(botIds, format = "round-robin", random = 
   })));
 }
 
+export function makeSwissRound(botIds, scores = {}, previousMatches = [], round = 1) {
+  const ids = [...new Set(botIds)].slice(0, 8);
+  if (ids.length < 4) throw new Error("Select at least four bots.");
+  const opponents = new Map(ids.map(id => [id, new Set()]));
+  const colors = new Map(ids.map(id => [id, { white: 0, black: 0 }]));
+  const byes = new Map(ids.map(id => [id, 0]));
+  for (const match of previousMatches) {
+    if (match?.white && match?.black && opponents.has(match.white) && opponents.has(match.black)) {
+      opponents.get(match.white).add(match.black);
+      opponents.get(match.black).add(match.white);
+      colors.get(match.white).white++;
+      colors.get(match.black).black++;
+    } else if (match?.bye && byes.has(match.bye)) byes.set(match.bye, byes.get(match.bye) + 1);
+  }
+  const points = id => Number(scores[id]?.points) || 0;
+  const standings = ids.slice().sort((a, b) => points(b) - points(a) || ids.indexOf(a) - ids.indexOf(b));
+  const result = [];
+  if (standings.length % 2) {
+    const bye = standings.slice().reverse().sort((a, b) => byes.get(a) - byes.get(b) || points(a) - points(b) || ids.indexOf(b) - ids.indexOf(a))[0];
+    standings.splice(standings.indexOf(bye), 1);
+    result.push({ round, bye });
+  }
+  const findPairing = (remaining, allowRematches) => {
+    if (!remaining.length) return [];
+    const first = remaining[0], candidates = remaining.slice(1)
+      .filter(id => allowRematches || !opponents.get(first).has(id))
+      .sort((a, b) => Math.abs(points(a) - points(first)) - Math.abs(points(b) - points(first)) ||
+        Math.abs(colors.get(a).white - colors.get(a).black) - Math.abs(colors.get(b).white - colors.get(b).black) ||
+        remaining.indexOf(a) - remaining.indexOf(b));
+    for (const second of candidates) {
+      const rest = remaining.filter(id => id !== first && id !== second);
+      const tail = findPairing(rest, allowRematches);
+      if (tail) return [[first, second], ...tail];
+    }
+    return null;
+  };
+  const pairings = findPairing(standings, false) || findPairing(standings, true) || [];
+  let pairIndex = 0;
+  for (const [first, second] of pairings) {
+    const firstColors = colors.get(first), secondColors = colors.get(second);
+    let white, black;
+    if (firstColors.white - firstColors.black !== secondColors.white - secondColors.black) {
+      if (firstColors.white - firstColors.black < secondColors.white - secondColors.black) [white, black] = [first, second];
+      else [white, black] = [second, first];
+    } else if ((round + pairIndex) % 2) [white, black] = [second, first];
+    else [white, black] = [first, second];
+    result.push({ round, white, black });
+    pairIndex++;
+  }
+  return result;
+}
+
