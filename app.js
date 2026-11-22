@@ -16,12 +16,18 @@
   const prefs = parseJSON(store.get("h2c-prefs","{}"), {});
   const defaults = {
     think:3, elo:1800, multiPv:1, hash:32, san:false, showName:false, auto:false, showScore:true, analysisEngine:"stockfish",
-    theme:"system", board:"sage", pieces:"classic", motion:true, language:"vi", castle:{K:true,Q:true,k:true,q:true},
+    theme:"system", board:"sage", pieces:"classic", motion:true, language:"en", castle:{K:true,Q:true,k:true,q:true},
     boardSize:100, showCoordinates:true, showLegalHints:true
   };
   const settings = Object.assign({}, defaults, prefs);
   settings.castle = Object.assign({}, defaults.castle, prefs.castle || {});
   settings.analysisEngine = settings.analysisEngine === "h2c" ? "h2c" : "stockfish";
+  if (store.get("h2c-language-default-en", "") !== "1") {
+    settings.language = "en";
+    store.set("h2c-language-default-en", "1");
+    store.set("h2c-prefs", JSON.stringify(settings));
+  }
+  settings.language = settings.language === "vi" ? "vi" : "en";
   let board = fenBoard(START_FEN);
   let turn = "w", orientation = "w", mode = "builder", engineColor = "b";
   let enPassant = "-", halfmoveClock = 0, fullmoveNumber = 1;
@@ -155,7 +161,32 @@
     "Đã lưu bản sao Library.":"Library backup exported.","Đã xóa dữ liệu cục bộ.":"Local data deleted.",
     "Kích thước bàn cờ":"Board size","Tự khớp màn hình":"Fit screen","Hiện tọa độ":"Show coordinates",
     "Hiện dấu nước hợp lệ":"Show legal move hints","Tọa độ giúp nhận biết hàng và cột trên bàn cờ.":"Coordinates label board ranks and files.",
-    "Đánh dấu các ô có thể đi đến sau khi chọn quân.":"Mark legal destinations after selecting a piece."
+    "Đánh dấu các ô có thể đi đến sau khi chọn quân.":"Mark legal destinations after selecting a piece.",
+    "Khám phá":"Explore","Công cụ cờ vua của bạn, lưu cục bộ.":"Your chess toolkit, saved locally.",
+    "← Trang giới thiệu":"← Home","Coach tắt":"Coach off","Engine chưa khởi động được.":"The engine could not start.",
+    "⌫ Xóa quân":"⌫ Remove piece","0 vị trí":"0 positions","3 giây":"3 sec","1 giây":"1 sec","30 giây":"30 sec",
+    "Mức ELO mục tiêu":"Target Elo","1 biến":"1 line","2 biến":"2 lines","3 biến":"3 lines",
+    "Tiếng Việt":"Vietnamese","Phiên bản 1.0.0":"Version 1.0.0","Gửi góp ý cho How2Chess":"Send feedback to How2Chess",
+    "Stockfish · chess.js · bộ quân":"Stockfish · chess.js · piece sets","Xuất bản sao JSON hoặc nhập dữ liệu từ tệp How2Chess.":"Export a JSON backup or import data from a How2Chess file.",
+    "Về H2C":"Back to H2C","Mở menu bên":"Open side menu","Mở menu":"Open menu","How2Chess trang chủ":"How2Chess home","Đổi giao diện":"Change theme",
+    "Menu How2Chess":"How2Chess menu","Đóng menu":"Close menu","Các màn hình":"Screens","Minh họa bàn cờ How2Chess":"How2Chess board illustration",
+    "Điều hướng chính":"Main navigation","Mở menu bàn cờ":"Open board menu","Chế độ bàn cờ":"Board mode","Khay quân đen":"Black piece tray",
+    "Bàn cờ 8 x 8":"8 × 8 chessboard","Khay quân trắng":"White piece tray","Đổi lượt đi":"Change side to move","Hoàn tác":"Undo","Làm lại":"Redo",
+    "Thanh đánh giá":"Evaluation bar","Chạy trên thiết bị":"Runs on this device","Tìm tên bàn cờ…":"Search board names…","Tìm trong Library":"Search Library",
+    "Lọc Library":"Filter Library","Tạo bàn cờ mới":"Create a new board","Màn hình chức năng":"Feature screen","Đóng":"Close",
+    "Bạn đang có một ván chưa kết thúc. Hãy tiếp tục ván đó trước.":"You have an unfinished game. Continue it before starting another.",
+    "Không tải được chess.js. Hãy tải lại trang rồi thử tiếp.":"Could not load chess.js. Reload the page and try again.","Không thể mở lại ván này.":"Could not reopen this game.",
+    "Không tải được bộ kiểm tra luật cờ. Tải lại trang khi có kết nối.":"Could not load chess rules. Reload the page when connected.","Vị trí chưa hợp lệ để chơi.":"This position is not valid for play.","Nước đi không hợp lệ.":"Illegal move.",
+    "Không có nước đi hợp lệ ở thế cờ này.":"There are no legal moves in this position.","Model không đưa ra nước đi hợp lệ.":"The model did not return a legal move.",
+    "Engine đang tính. Dừng lượt hiện tại trước.":"The engine is thinking. Stop the current search first.","Không có nước đi hợp lệ ở vị trí này.":"There are no legal moves in this position.",
+    "Đã dừng phân tích.":"Analysis stopped.","Ván này đang tắt tính năng đi lại.":"Takebacks are disabled for this game.","Chưa có nước để đi lại.":"There are no moves to take back.",
+    "Không thể mở vị trí mẫu này.":"Could not open this example position.","Không sao chép được. Hãy chọn và sao chép thủ công.":"Could not copy it. Select and copy it manually.",
+    "Không tải được bộ xử lý PGN.":"Could not load the PGN parser.","Không thể tạo PGN cho vị trí hiện tại.":"Could not create a PGN for this position.",
+    "Đã nạp vị trí cuối của PGN.":"Loaded the final position from the PGN.","Không đọc được PGN. Kiểm tra ký hiệu nước đi.":"Could not read the PGN. Check the move notation.",
+    "How2Chess đã được cài trên thiết bị này.":"How2Chess is already installed on this device.","Mở menu trình duyệt rồi chọn “Cài đặt ứng dụng” hoặc “Thêm vào màn hình chính”.":"Open your browser menu and choose “Install app” or “Add to Home screen”.",
+    "Không đọc được FEN đã lưu.":"Could not read the saved FEN.","Đã đặt lại thế cờ gốc.":"Board reset to the starting position.","Bàn cờ đã được dọn.":"The board is clear.","Đã nạp FEN.":"FEN position loaded.",
+    "Đã nhân bản thế cờ.":"Position duplicated.","Đã xóa thế cờ.":"Position deleted.","Đã xuất bản sao Library.":"Library backup exported.",
+    "How2Chess đã được cài đặt.":"How2Chess was installed.","Không tải được chess.js. Kiểm tra kết nối internet rồi tải lại.":"Could not load chess.js. Check your internet connection and reload."
   };
   const VI_TEXT = Object.fromEntries(Object.entries(EN_TEXT).map(([vi,en])=>[en,vi]));
 
@@ -270,10 +301,10 @@
     el.innerHTML=html;
   }
   function renderTrays() {
-    const pieces=["q","r","b","n","p"];
+    const pieces=["q","r","b","n","p"],en=settings.language==="en";
     ["black","white"].forEach(side=>{
       const color=side==="white"?"w":"b",el=$("#"+side+"Tray");
-      el.innerHTML=pieces.map(type=>'<button class="tray-piece '+(picked&&picked.color===color&&picked.type===type?"selected":"")+'" draggable="true" data-pick="'+color+type+'" aria-label="Chọn '+(color==="w"?"quân trắng ":"quân đen ")+GLYPH[type]+'" title="'+GLYPH[type]+'">'+pieceSymbol({type,color})+'</button>').join("");
+      el.innerHTML=pieces.map(type=>'<button class="tray-piece '+(picked&&picked.color===color&&picked.type===type?"selected":"")+'" draggable="true" data-pick="'+color+type+'" aria-label="'+(en?"Select "+(color==="w"?"white ":"black ")+GLYPH[type]:"Chọn "+(color==="w"?"quân trắng ":"quân đen ")+GLYPH[type])+'" title="'+GLYPH[type]+'">'+pieceSymbol({type,color})+'</button>').join("");
     });
   }
   function legalCheck() {
@@ -339,9 +370,9 @@
     $("#boardHint").textContent=mode==="engine"?(turn===engineColor?(settings.language==="en"?"The engine is to move.":"Máy đang chờ nước đi."):(settings.language==="en"?"You play "+(opposite(engineColor)==="w"?"White":"Black")+" · select a piece and destination.":"Bạn chơi "+(opposite(engineColor)==="w"?"Trắng":"Đen")+" · chọn quân rồi chọn ô đến.")):(settings.language==="en"?"Choose a tray piece, then tap a square to place it.":"Chọn quân trong khay rồi chạm ô để dựng thế cờ.");
     $("#builderMode").classList.toggle("active",mode==="builder");
     $("#engineMode").classList.toggle("active",mode==="engine");
-    $("#turnBtn").setAttribute("aria-label",mode==="engine"?"Đổi màu quân bạn chơi":"Đổi lượt đi");
+    $("#turnBtn").setAttribute("aria-label",mode==="engine"?(settings.language==="en"?"Change the side you play":"Đổi màu quân bạn chơi"):(settings.language==="en"?"Change side to move":"Đổi lượt đi"));
     $("#eraseModeBtn").classList.toggle("active",eraseMode);
-    $("#eraseModeBtn").textContent=eraseMode?"✓ Xóa quân":"⌫ Xóa quân";
+    $("#eraseModeBtn").textContent=eraseMode?(settings.language==="en"?"✓ Remove pieces":"✓ Xóa quân"):(settings.language==="en"?"⌫ Remove piece":"⌫ Xóa quân");
   }
   function renderEvaluation() {
     const pill=$("#evalPill"),score=$("#evalScore"),meta=$("#evalMeta"),white=$("#evalWhite");
@@ -382,6 +413,11 @@
       const leading=raw.slice(0,raw.indexOf(trimmed)),trailing=raw.slice(raw.indexOf(trimmed)+trimmed.length);
       node.nodeValue=leading+map[trimmed]+trailing;
     }
+    const translatedAttributes=["aria-label","title","placeholder","alt"];
+    $(`[${translatedAttributes.join("],[")}]`).forEach(element=>translatedAttributes.forEach(attribute=>{
+      const value=element.getAttribute(attribute);
+      if(value&&map[value])element.setAttribute(attribute,map[value]);
+    }));
     $("#librarySearch").placeholder=settings.language==="en"?"Search positions…":"Tìm tên bàn cờ…";
   }
   function renderOpponent() {
@@ -1300,6 +1336,7 @@
   function syncOptions() { snapshotSettingsToUI(); }
   function updateLanguage() {
     const en=settings.language==="en";document.documentElement.lang=en?"en":"vi";
+    $("#languageSelect").value=settings.language;
     const labels=en?{h2c:"H2C",library:"Library",options:"Options",analysis:"Analysis board",open:"Open app",calculate:"Calculate move",builder:"Build position",engine:"Play Stockfish",libraryTitle:"Library",optionsTitle:"Options"}:
       {h2c:"H2C",library:"Library",options:"Options",analysis:"Bàn phân tích",open:"Mở ứng dụng",calculate:"Tính nước đi",builder:"Dựng thế",engine:"Đấu với máy",libraryTitle:"Library",optionsTitle:"Options"};
     $$(".navtab").forEach(tab=>tab.querySelector("span").textContent=labels[tab.dataset.screen]);
@@ -1434,7 +1471,7 @@
   function setEngineError(message) {
     engineBusy=false;waitingForReady=false;currentJob=null;
     if(onnxWorker){onnxWorker.terminate();onnxWorker=null;}onnxReady=false;
-    $("#engineProgress").hidden=true;$("#engineError").hidden=false;$("#engineError span").textContent=message;
+    $("#engineProgress").hidden=true;$("#engineError").hidden=false;$("#engineError span").textContent=tr(message);
     setEngineBadge("Engine cần kết nối",false);
   }
   function sendEngineOptions() {
@@ -1488,7 +1525,7 @@
     if(!C){setEngineError("Không tải được chess.js. Tải lại trang khi có mạng.");return;}
     if(engineBusy){pushToast("Engine đang tính. Dừng lượt hiện tại trước.");return;}
     currentJob={fen:boardFen(),turn,execute:!!execute,playReply:!!playReply,depth:0,nodes:0,eval:null};
-    bestMove=null;searchLines={};lastEvaluation=null;$("#evalPill").textContent="…";$("#evalScore").textContent="Đang phân tích…";$("#pvList").innerHTML="";drawArrows();
+    bestMove=null;searchLines={};lastEvaluation=null;$("#evalPill").textContent="…";$("#evalScore").textContent=settings.language==="en"?"Analyzing…":"Đang phân tích…";$("#pvList").innerHTML="";drawArrows();
     const useOnnx=settings.analysisEngine==="h2c"&&!coachEnabled;
     currentJob.backend=useOnnx?"h2c":"stockfish";
     if(useOnnx){
@@ -1616,7 +1653,7 @@
     try{const g=new C();template.moves.forEach(san=>g.move(san));return g.fen();}catch(_){return START_FEN;}
   }
   function openTemplate(template) {
-    try{setFromFen(makeTemplateFen(template),false);boardName=template.name;openItemId=template.id;mode="builder";lastEvaluation=null;bestMove=null;renderAll();setScreen("h2c",true);pushToast(template.name+" đã mở trên bàn phân tích.");}
+    try{setFromFen(makeTemplateFen(template),false);boardName=template.name;openItemId=template.id;mode="builder";lastEvaluation=null;bestMove=null;renderAll();setScreen("h2c",true);pushToast(settings.language==="en"?template.name+" opened on the analysis board.":template.name+" đã mở trên bàn phân tích.");}
     catch(_){pushToast("Không thể mở vị trí mẫu này.");}
   }
   function newBoard(empty) {
@@ -1633,7 +1670,7 @@
     const item={id:existing?existing.id:"board-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7),name:(name||boardName||"Thế cờ chưa đặt tên").trim(),fen:boardFen(),updatedAt:new Date().toISOString(),eval:lastEvaluation?scoreText(lastEvaluation):null,source:"mine"};
     const index=savedBoards.findIndex(x=>x.id===item.id);
     if(index>=0)savedBoards[index]=item;else savedBoards.unshift(item);
-    boardName=item.name;openItemId=item.id;persistLibrary();renderAll();renderLibrary();pushToast("Đã lưu “"+item.name+"” vào Library.");
+    boardName=item.name;openItemId=item.id;persistLibrary();renderAll();renderLibrary();pushToast(settings.language==="en"?"Saved “"+item.name+"” to the Library.":"Đã lưu “"+item.name+"” vào Library.");
   }
   function scoreText(e){if(Array.isArray(e.wdl))return "WDL "+e.wdl.map(v=>Math.round(v*100)+"%").join("/");return e.mate!==null?"M"+Math.abs(e.mate):(e.white>=0?"+":"")+(e.white/100).toFixed(2);}
   function copyText(text,message) {
@@ -1691,7 +1728,7 @@
     translateDocument();
   }
   function openSaved(item) {
-    try{setFromFen(item.fen,false);boardName=item.name||"Thế cờ đã lưu";openItemId=item.id;mode="builder";lastEvaluation=null;bestMove=null;renderAll();setScreen("h2c",true);pushToast("Đã mở “"+boardName+"”.");}
+    try{setFromFen(item.fen,false);boardName=item.name||"Thế cờ đã lưu";openItemId=item.id;mode="builder";lastEvaluation=null;bestMove=null;renderAll();setScreen("h2c",true);pushToast(settings.language==="en"?"Opened “"+boardName+"”.":"Đã mở “"+boardName+"”.");}
     catch(_){pushToast("Không đọc được FEN đã lưu.");}
   }
   function showModal(title,html,buttons) {
@@ -1712,8 +1749,8 @@
     return new Promise(resolve=>{
       $("#modalTitle").textContent=title;$("#modalBody").innerHTML='<label class="field-label">'+escapeHtml(label)+'</label><input id="modalInput" type="text" value="'+escapeHtml(value||"")+'" maxlength="70">';
       $("#modalActions").innerHTML="";
-      const cancel=document.createElement("button");cancel.className="btn btn-soft";cancel.textContent="Hủy";
-      const save=document.createElement("button");save.className="btn btn-primary";save.textContent="Lưu";
+      const cancel=document.createElement("button");cancel.className="btn btn-soft";cancel.textContent=tr("Hủy");
+      const save=document.createElement("button");save.className="btn btn-primary";save.textContent=tr("Lưu");
       const finish=result=>{closeModal();resolve(result);};
       cancel.addEventListener("click",()=>finish(null));save.addEventListener("click",()=>finish($("#modalInput").value.trim()));
     $("#modalActions").append(cancel,save);$("#modalBackdrop").hidden=false;translateDocument();
@@ -1724,21 +1761,22 @@
   function modalTextArea(title,label,value,actionLabel,callback) {
     $("#modalTitle").textContent=title;$("#modalBody").innerHTML='<label class="field-label">'+escapeHtml(label)+'</label><textarea id="modalText" spellcheck="false">'+escapeHtml(value||"")+'</textarea>';
     $("#modalActions").innerHTML="";
-    const cancel=document.createElement("button");cancel.className="btn btn-soft";cancel.textContent="Đóng";
+    const cancel=document.createElement("button");cancel.className="btn btn-soft";cancel.textContent=tr("Đóng");
     const action=document.createElement("button");action.className="btn btn-primary";action.textContent=actionLabel;
     cancel.addEventListener("click",closeModal);action.addEventListener("click",()=>{const value=$("#modalText").value;closeModal();callback(value);});
     $("#modalActions").append(cancel,action);$("#modalBackdrop").hidden=false;translateDocument();setTimeout(()=>$("#modalText").focus(),20);
   }
   function resourceContent(name) {
+    const en=settings.language==="en";
     const content={
-      changelog:"<p><strong>How2Chess 1.0.0</strong> — bản đầu tiên của Chess Calculator.</p><ul><li>Dựng thế cờ, kiểm tra nước hợp lệ và hỗ trợ FEN/PGN.</li><li>Phân tích với Stockfish trong Web Worker.</li><li>Library cục bộ, PWA, chế độ sáng/tối và tiếng Việt/English.</li></ul>",
-      feedback:"<p>How2Chess là bộ mã nguồn tĩnh chạy trên thiết bị của bạn. Hãy ghi lại trình duyệt, thiết bị và các bước khiến lỗi xuất hiện để tiện xử lý khi bạn lưu mã nguồn lên GitHub.</p><p>Không có biểu mẫu hay tài khoản gửi phản hồi trong bản này.</p>",
+      changelog:en?"<p><strong>How2Chess 1.0.0</strong> — the first Chess Calculator release.</p><ul><li>Build positions, validate legal moves, and import or export FEN/PGN.</li><li>Analyze with Stockfish in a Web Worker.</li><li>Local library, PWA, light and dark themes, and English/Vietnamese language options.</li></ul>":"<p><strong>How2Chess 1.0.0</strong> — bản đầu tiên của Chess Calculator.</p><ul><li>Dựng thế cờ, kiểm tra nước hợp lệ và hỗ trợ FEN/PGN.</li><li>Phân tích với Stockfish trong Web Worker.</li><li>Library cục bộ, PWA, chế độ sáng/tối và tiếng Việt/English.</li></ul>",
+      feedback:en?"<p>How2Chess is a static app that runs on your device. When reporting an issue, include your browser, device, and the steps that reproduce it.</p><p>This version has no feedback form or account system.</p>":"<p>How2Chess là bộ mã nguồn tĩnh chạy trên thiết bị của bạn. Hãy ghi lại trình duyệt, thiết bị và các bước khiến lỗi xuất hiện để tiện xử lý khi bạn lưu mã nguồn lên GitHub.</p><p>Không có biểu mẫu hay tài khoản gửi phản hồi trong bản này.</p>",
       license:"<p><strong>Stockfish.js</strong> uses GPL-3.0. See LICENSES.md for source links and redistribution terms.</p><p><strong>chess.js 0.10.3</strong> uses BSD-2-Clause.</p><p>Custom piece SVGs are CC0 1.0.</p>",
-      terms:"<p>How2Chess cung cấp công cụ phân tích và học cờ để tham khảo. Engine có thể đưa ra đánh giá khác nhau theo phiên bản, thời gian tính và thiết bị; kết quả không phải chứng nhận hay lời khuyên chuyên môn.</p><p>Bạn chịu trách nhiệm tuân thủ giấy phép của các thành phần bên thứ ba khi chỉnh sửa, phân phối hoặc đóng gói ứng dụng.</p>",
-      privacy:"<p>Library, cài đặt và dữ liệu cục bộ được lưu trong localStorage của trình duyệt trên thiết bị này. How2Chess không có backend, tài khoản hoặc dịch vụ đồng bộ.</p><p>Ứng dụng tải chess.js và Stockfish.js từ CDN khi cần engine. Các nước cờ và thế cờ không được gửi đến máy chủ để phân tích. Sau lần tải đầu, service worker cố gắng lưu ứng dụng cùng engine để dùng lại khi offline trên HTTPS/localhost.</p><p>Xóa dữ liệu trình duyệt hoặc dùng “Xóa toàn bộ dữ liệu” để gỡ dữ liệu đã lưu.</p>",
-      about:"<p><strong>How2Chess — Chess Calculator</strong><br>Phiên bản 1.0.0<br>Phân tích cờ vua trên trình duyệt với Stockfish.</p><p>Không cần tài khoản. Mã nguồn có thể triển khai trên GitHub Pages hoặc đóng gói bằng Capacitor.</p>"
+      terms:en?"<p>How2Chess provides chess analysis and learning tools for reference. Engine evaluations may vary by version, search time, and device; they are not certification or professional advice.</p><p>You are responsible for following third-party licenses when modifying, distributing, or packaging the app.</p>":"<p>How2Chess cung cấp công cụ phân tích và học cờ để tham khảo. Engine có thể đưa ra đánh giá khác nhau theo phiên bản, thời gian tính và thiết bị; kết quả không phải chứng nhận hay lời khuyên chuyên môn.</p><p>Bạn chịu trách nhiệm tuân thủ giấy phép của các thành phần bên thứ ba khi chỉnh sửa, phân phối hoặc đóng gói ứng dụng.</p>",
+      privacy:en?"<p>Your library, settings, and local data are stored in this device's browser storage. How2Chess has no backend, account, or sync service.</p><p>The app downloads chess.js and Stockfish.js from a CDN when the engine is needed. Your moves and positions are not sent to a server for analysis. After the first load, the service worker tries to cache the app and engine for offline use over HTTPS or localhost.</p><p>Clear your browser data or use “Delete all data” to remove saved data.</p>":"<p>Library, cài đặt và dữ liệu cục bộ được lưu trong localStorage của trình duyệt trên thiết bị này. How2Chess không có backend, tài khoản hoặc dịch vụ đồng bộ.</p><p>Ứng dụng tải chess.js và Stockfish.js từ CDN khi cần engine. Các nước cờ và thế cờ không được gửi đến máy chủ để phân tích. Sau lần tải đầu, service worker cố gắng lưu ứng dụng cùng engine để dùng lại khi offline trên HTTPS/localhost.</p><p>Xóa dữ liệu trình duyệt hoặc dùng “Xóa toàn bộ dữ liệu” để gỡ dữ liệu đã lưu.</p>",
+      about:en?"<p><strong>How2Chess — Chess Calculator</strong><br>Version 1.0.0<br>Analyze chess in your browser with Stockfish.</p><p>No account required. Deploy from GitHub Pages or package with Capacitor.</p>":"<p><strong>How2Chess — Chess Calculator</strong><br>Phiên bản 1.0.0<br>Phân tích cờ vua trên trình duyệt với Stockfish.</p><p>Không cần tài khoản. Mã nguồn có thể triển khai trên GitHub Pages hoặc đóng gói bằng Capacitor.</p>"
     };
-    return content[name]||"<p>Thông tin chưa có.</p>";
+    return content[name]||(en?"<p>Information unavailable.</p>":"<p>Thông tin chưa có.</p>");
   }
   async function handleBoardMenu(action) {
     $("#boardMenu").hidden=true;
@@ -1780,7 +1818,7 @@
         if(!data||!Array.isArray(data.boards))throw new Error("Tệp không đúng định dạng How2Chess.");
         const cleaned=data.boards.filter(item=>item&&typeof item.fen==="string").map(item=>({id:String(item.id||"board-"+Date.now()+Math.random()),name:String(item.name||"Thế cờ đã nhập").slice(0,70),fen:item.fen,updatedAt:item.updatedAt||new Date().toISOString(),eval:item.eval||null,source:"mine"}));
         savedBoards=cleaned.concat(savedBoards.filter(old=>!cleaned.some(item=>item.id===old.id)));
-        persistLibrary();renderLibrary();pushToast("Đã nhập "+cleaned.length+" vị trí.");
+        persistLibrary();renderLibrary();pushToast(settings.language==="en"?"Imported "+cleaned.length+" positions.":"Đã nhập "+cleaned.length+" vị trí.");
       }catch(error){pushToast(error.message||"Không đọc được tệp JSON.");}
     };
     reader.readAsText(file);
@@ -1923,7 +1961,7 @@
   function initialize() {
     if(!C) {
       $("#engineBadge").classList.add("error");
-      $("#engineBadge").querySelector("span").textContent="Cần tải chess.js";
+      setEngineBadge("Cần tải chess.js",false);
       $("#calculateBtn").disabled=true;
       pushToast("Không tải được chess.js. Kiểm tra kết nối internet rồi tải lại.");
     }

@@ -80,7 +80,7 @@ test("Tournament screen supports local pairings, standings, progress, and saved 
 });
 
 test("PWA and static build include the variant modules and pinned chessops asset", () => {
-  assert.match(sw, /const CACHE_NAME = "how2chess-v11"/);
+  assert.match(sw, /const CACHE_NAME = "how2chess-v12"/);
   assert.match(sw, /\.\/variant-runtime\.mjs/);
   assert.match(sw, /https:\/\/esm\.sh\/chessops@0\.15\.1\?bundle/);
   assert.match(build, /"variant-runtime\.mjs"/);
