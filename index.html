@@ -12,7 +12,7 @@
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="./icons/icon-192.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./app.css">
+  <link rel="stylesheet" href="./app.css?v=20261122.3">
   <title>How2Chess — Chess Calculator</title>
   <script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).catch(() => {});</script>
 </head>
@@ -222,6 +222,13 @@
                 <label class="toggle-row"><span><strong>Automatically Execute Move</strong><small>Tự đi nước tốt nhất sau khi tính</small></span><input type="checkbox" id="autoToggle"><i class="switch"></i></label>
                 <label class="toggle-row"><span><strong>Show Engine Score</strong><small>Hiện điểm đánh giá và thanh lợi thế</small></span><input type="checkbox" id="scoreToggle" checked><i class="switch"></i></label>
               </div>
+              <label class="slider-label" for="boardSizeRange"><span>Kích thước bàn cờ</span><strong><output id="boardSizeValue">Tự khớp màn hình</output></strong></label>
+              <input id="boardSizeRange" type="range" min="70" max="100" step="5" value="100" aria-describedby="boardSizeScale">
+              <div class="range-scale" id="boardSizeScale"><span>70%</span><span>100%</span></div>
+              <div class="toggle-list board-display-toggles">
+                <label class="toggle-row"><span><strong>Hiện tọa độ</strong><small>Tọa độ giúp nhận biết hàng và cột trên bàn cờ.</small></span><input type="checkbox" id="coordinatesToggle" checked><i class="switch"></i></label>
+                <label class="toggle-row"><span><strong>Hiện dấu nước hợp lệ</strong><small>Đánh dấu các ô có thể đi đến sau khi chọn quân.</small></span><input type="checkbox" id="legalHintsToggle" checked><i class="switch"></i></label>
+              </div>
             </section>
             <section class="option-group card">
               <div class="group-heading"><div><span class="eyebrow eyebrow-soft">RULES</span><h3>Castling Availability</h3></div><span class="group-icon">♜</span></div>
@@ -281,6 +288,6 @@
   <div class="modal-backdrop" id="modalBackdrop" hidden><section class="modal card" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><button class="modal-close" id="modalClose" aria-label="Đóng">×</button><span class="eyebrow eyebrow-soft">HOW2CHESS</span><h2 id="modalTitle"></h2><div class="modal-body" id="modalBody"></div><div class="modal-actions" id="modalActions"></div></section></div>
   <script src="./vendor/chess/chess.js" defer></script>
   <script src="./follow-service.js" defer></script>
-  <script src="./app.js?v=20261122.2" defer></script>
+  <script src="./app.js?v=20261122.3" defer></script>
 </body>
 </html>
