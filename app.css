@@ -696,3 +696,22 @@ input[type="range"] { width:100%;height:20px;margin:3px 0 0;accent-color:var(--a
   .streamer-row>a { grid-column:3;grid-row:1/3; }
   .tv-panel .feature-section-head { align-items:flex-start;flex-direction:column; }
 }
+
+
+/* Responsive board controls: fit the board to short viewports and keep drawer navigation usable. */
+body.drawer-open { overflow:hidden; }
+.side-drawer { width:min(320px,calc(100vw - 20px)); }
+.drawer-link { min-height:52px; }
+.board-display-toggles { margin-top:6px; }
+:root[data-coordinates="off"] .board-coords,
+:root[data-coordinates="off"] .coord { display:none!important; }
+:root[data-legal-hints="off"] .square.legal-target::after,
+:root[data-legal-hints="off"] .square.legal-capture::after { display:none!important; }
+@media (max-width:899px) {
+  .board-frame { width:min(100%,clamp(250px,calc(100vh - 450px),620px)); width:min(100%,clamp(250px,calc(100svh - 450px),620px)); max-width:var(--board-max-width,100%); margin-inline:auto; }
+}
+@media (max-width:560px) {
+  .side-drawer { width:min(320px,calc(100vw - 12px)); }
+  .drawer-link { min-height:48px; }
+  .drawer-icon { width:40px;height:40px; }
+}
