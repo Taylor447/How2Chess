@@ -187,6 +187,7 @@
     "Không đọc được FEN đã lưu.":"Could not read the saved FEN.","Đã đặt lại thế cờ gốc.":"Board reset to the starting position.","Bàn cờ đã được dọn.":"The board is clear.","Đã nạp FEN.":"FEN position loaded.",
     "Đã nhân bản thế cờ.":"Position duplicated.","Đã xóa thế cờ.":"Position deleted.","Đã xuất bản sao Library.":"Library backup exported.",
     "How2Chess đã được cài đặt.":"How2Chess was installed.","Không tải được chess.js. Kiểm tra kết nối internet rồi tải lại.":"Could not load chess.js. Check your internet connection and reload."
+
   };
   const VI_TEXT = Object.fromEntries(Object.entries(EN_TEXT).map(([vi,en])=>[en,vi]));
 
@@ -390,7 +391,7 @@
     }
     const value=e.mate!==null?"M"+Math.abs(e.mate):(e.white>=0?"+":"")+((e.white/100).toFixed(2));
     pill.textContent=value;score.textContent=e.mate!==null?(settings.language==="en"?(e.mate>0?"White has mate":"Black has mate"):(e.mate>0?"Chiếu hết cho Trắng":"Chiếu hết cho Đen")):(settings.language==="en"?(e.white>=0?"White is ahead ":"Black is ahead "):(e.white>=0?"Trắng đang hơn ":"Đen đang hơn "))+Math.abs(e.white/100).toFixed(2);
-    meta.textContent="Độ sâu "+(e.depth||"—")+" · "+formatNodes(e.nodes||0)+" nodes";
+    meta.textContent=(settings.language==="en"?"Depth ":"Độ sâu ")+(e.depth||"—")+" · "+formatNodes(e.nodes||0)+" nodes";
     const cp=e.mate!==null?(e.mate>0?900:-900):e.white;
     const pct=Math.max(4,Math.min(96,50+Math.tanh(cp/380)*45));white.style.height=pct+"%";$("#evalBlack").style.height=(100-pct)+"%";
   }
@@ -1813,31 +1814,71 @@
       if(choice){savedBoards=savedBoards.filter(x=>x.id!==id);if(openItemId===id)openItemId=null;persistLibrary();renderLibrary();pushToast("Đã xóa thế cờ.");}
     }
   }
-  function exportLibraryJSON() {
-    const payload={app:"How2Chess",version:1,exportedAt:new Date().toISOString(),boards:savedBoards,settings};
-    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="how2chess-library.json";a.click();URL.revokeObjectURL(url);pushToast("Đã xuất bản sao Library.");
+  function readBackupDatabase() {
+    return openHistoryDatabase().then(db=>new Promise((resolve,reject)=>{
+      const tx=db.transaction(["local","puzzles"],"readonly"),localRequest=tx.objectStore("local").getAll(),puzzleRequest=tx.objectStore("puzzles").getAll();
+      let local=[],puzzles=[];localRequest.onsuccess=()=>{local=localRequest.result||[];};puzzleRequest.onsuccess=()=>{puzzles=puzzleRequest.result||[];};
+      tx.oncomplete=()=>{db.close();resolve({local,puzzles});};tx.onerror=()=>{db.close();reject(tx.error||new Error("Could not read local backup data."));};
+    }));
   }
-  function importLibraryJSON(file) {
+  function mergeRecordsById(existing,incoming,prefix) {
+    const rows=new Map((Array.isArray(existing)?existing:[]).filter(row=>row&&row.id).map(row=>[String(row.id),row]));
+    (Array.isArray(incoming)?incoming:[]).forEach((row,index)=>{if(row&&typeof row==="object"){const id=String(row.id||prefix+index+"-"+Date.now());rows.set(id,Object.assign({},row,{id}));}});
+    return [...rows.values()];
+  }
+  async function exportLibraryJSON() {
+    try {
+      const localStorageData={};
+      for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&key.startsWith("h2c-")){const value=localStorage.getItem(key);if(value!==null)localStorageData[key]=value;}}
+      const database=await readBackupDatabase();
+      const payload={app:"How2Chess",version:2,exportedAt:new Date().toISOString(),boards:savedBoards,settings,localStorage:localStorageData,indexedDB:database};
+      downloadTextFile("how2chess-backup.json",JSON.stringify(payload),"application/json;charset=utf-8");
+      pushToast(settings.language==="en"?"Full local backup exported, including games and puzzle packs.":"Đã xuất toàn bộ dữ liệu cục bộ, gồm ván đấu và kho câu đố.");
+    } catch(error) { pushToast((settings.language==="en"?"Backup failed: ":"Không thể sao lưu: ")+(error?.message||"storage error")); }
+  }
+  async function importLibraryJSON(file) {
     if(!file)return;
-    const reader=new FileReader();
-    reader.onload=()=>{
-      try{
-        const data=JSON.parse(String(reader.result||""));
-        if(!data||!Array.isArray(data.boards))throw new Error("Tệp không đúng định dạng How2Chess.");
-        const cleaned=data.boards.filter(item=>item&&typeof item.fen==="string").map(item=>({id:String(item.id||"board-"+Date.now()+Math.random()),name:String(item.name||"Thế cờ đã nhập").slice(0,70),fen:item.fen,updatedAt:item.updatedAt||new Date().toISOString(),eval:item.eval||null,source:"mine"}));
-        savedBoards=cleaned.concat(savedBoards.filter(old=>!cleaned.some(item=>item.id===old.id)));
-        persistLibrary();renderLibrary();pushToast(settings.language==="en"?"Imported "+cleaned.length+" positions.":"Đã nhập "+cleaned.length+" vị trí.");
-      }catch(error){pushToast(error.message||"Không đọc được tệp JSON.");}
-    };
-    reader.readAsText(file);
+    if(file.size>512*1024*1024){pushToast(settings.language==="en"?"This backup is over the 512 MB safety limit.":"Tệp sao lưu vượt giới hạn an toàn 512 MB.");return;}
+    try {
+      const data=JSON.parse(await file.text());
+      if(!data||data.app!=="How2Chess"||(!Array.isArray(data.boards)&&(!data.localStorage||!data.indexedDB)))throw new Error(settings.language==="en"?"This is not a How2Chess backup.":"Tệp này không phải bản sao lưu How2Chess.");
+      const incomingLocal=data.localStorage&&typeof data.localStorage==="object"?data.localStorage:{};
+      for(const [key,value] of Object.entries(incomingLocal))if(key.startsWith("h2c-")&&typeof value==="string"&&value.length<64*1024*1024)store.set(key,value);
+      if(data.settings&&typeof data.settings==="object"&&!incomingLocal["h2c-prefs"])store.set("h2c-prefs",JSON.stringify(data.settings));
+      const rawBoards=Array.isArray(data.boards)?data.boards:parseJSON(incomingLocal["h2c-library"]||"[]",[]);
+      const restoredBoards=rawBoards.filter(item=>item&&typeof item.fen==="string"&&item.fen.length<=256).map(item=>({id:String(item.id||"board-"+Date.now()+Math.random()),name:String(item.name||"Imported position").slice(0,70),fen:item.fen,updatedAt:item.updatedAt||new Date().toISOString(),eval:item.eval||null,source:"mine"}));
+      savedBoards=mergeRecordsById(savedBoards,restoredBoards,"board-");persistLibrary();
+      const indexed=data.indexedDB&&typeof data.indexedDB==="object"?data.indexedDB:{};
+      const localRows=Array.isArray(indexed.local)?indexed.local:[];
+      const importedGames=Array.isArray(data.games)?data.games:(localRows.find(row=>row?.key==="games")?.value||parseJSON(incomingLocal["h2c-game-history"]||"[]",[]));
+      if(Array.isArray(importedGames)){
+        savedGames=mergeRecordsById(savedGames,importedGames,"game-").slice(-5000);
+        const profile=localRows.find(row=>row?.key==="profile")?.value;
+        const importedRating=profile?.rating??incomingLocal["h2c-player-rating"];
+        if(Number.isFinite(Number(importedRating)))playerRating=Number(importedRating);
+        persistGameHistory();
+      }
+      if(localRows.length){const db=await openHistoryDatabase();await new Promise((resolve,reject)=>{const tx=db.transaction("local","readwrite"),objects=tx.objectStore("local");localRows.filter(row=>row&&typeof row.key==="string"&&row.key!=="games"&&row.key!=="profile").forEach(row=>objects.put(row));tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error||new Error("Could not restore local records."));};});}
+      const sourcePuzzles=Array.isArray(indexed.puzzles)?indexed.puzzles:(Array.isArray(data.puzzles)?data.puzzles:[]);
+      if(sourcePuzzles.length){
+        if(sourcePuzzles.length>300000)throw new Error(settings.language==="en"?"Puzzle backup exceeds the 300,000 puzzle limit.":"Bản sao lưu vượt giới hạn 300.000 câu đố.");
+        let batch=[];
+        for(const puzzle of sourcePuzzles){if(puzzle&&typeof puzzle.id==="string"&&puzzle.id.length<=200&&puzzle.fen&&Array.isArray(puzzle.solution)&&puzzleSolutionIsLegal(puzzle)){batch.push(puzzle);if(batch.length>=1000){await savePuzzleBatch(batch);batch=[];}}}
+        if(batch.length)await savePuzzleBatch(batch);
+      }
+      const restoredCount=restoredBoards.length+(Array.isArray(importedGames)?importedGames.length:0)+sourcePuzzles.length;
+      pushToast(settings.language==="en"?"Backup restored. Reloading to refresh every screen…":"Đã khôi phục bản sao. Đang tải lại để cập nhật các màn hình…");
+      setTimeout(()=>location.reload(),250);
+    } catch(error) { pushToast((settings.language==="en"?"Import failed: ":"Không thể nhập bản sao: ")+(error?.message||"invalid backup")); }
   }
   async function clearAllData() {
-    const ok=await showModal("Xóa toàn bộ dữ liệu?","<p>Thao tác này xóa Library và các tùy chọn đã lưu trên trình duyệt này.</p>",[{label:"Hủy",className:"btn-soft",value:false},{label:"Xóa dữ liệu",className:"btn-danger",value:true}]);
+    const en=settings.language==="en",ok=await showModal(en?"Delete all local data?":"Xóa toàn bộ dữ liệu?",'<p>'+(en?"This removes your library, game history, settings, puzzle pack, and training progress from this browser.":"Thao tác này xóa Library, lịch sử ván đấu, cài đặt, kho câu đố và tiến độ luyện tập trên trình duyệt này.")+'</p>',[{label:en?"Cancel":"Hủy",className:"btn-soft",value:false},{label:en?"Delete all":"Xóa tất cả",className:"btn-danger",value:true}]);
     if(!ok)return;
-    store.remove("h2c-library");store.remove("h2c-prefs");savedBoards=[];Object.assign(settings,defaults,{castle:Object.assign({},defaults.castle)});
-    board=fenBoard(START_FEN);turn="w";boardName="Thế cờ mới";openItemId=null;lastEvaluation=null;bestMove=null;undoStack=[];redoStack=[];
-    setTheme("system");snapshotSettingsToUI();renderAll();renderLibrary();pushToast("Đã xóa dữ liệu cục bộ.");
+    try {
+      for(let i=localStorage.length-1;i>=0;i--){const key=localStorage.key(i);if(key?.startsWith("h2c-"))localStorage.removeItem(key);}
+      const db=await openHistoryDatabase();await new Promise((resolve,reject)=>{const tx=db.transaction(["local","puzzles"],"readwrite");tx.objectStore("local").clear();tx.objectStore("puzzles").clear();tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error||new Error("Local data could not be cleared."));};});
+      location.reload();
+    } catch(error) { pushToast((settings.language==="en"?"Could not clear all local data: ":"Không thể xóa toàn bộ dữ liệu cục bộ: ")+(error?.message||"storage error")); }
   }
 
   function bindNavigationEvents() {

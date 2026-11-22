@@ -259,9 +259,9 @@
               <button class="resource-row" data-resource="about"><span>About How2Chess<small>Chess Calculator · v1.0.0</small></span><b>›</b></button>
             </section>
             <section class="option-group card data-group">
-              <div class="group-heading"><div><span class="eyebrow eyebrow-soft">BACKUP</span><h3>Library data</h3></div><span class="group-icon">⇄</span></div>
-              <p class="muted-text">Export a JSON backup or import data from a How2Chess file.</p>
-              <div class="data-actions"><button class="btn btn-soft" id="exportDataBtn">Export JSON</button><button class="btn btn-soft" id="importDataBtn">Import JSON</button></div>
+              <div class="group-heading"><div><span class="eyebrow eyebrow-soft">BACKUP</span><h3>Full local backup</h3></div><span class="group-icon">⇄</span></div>
+              <p class="muted-text">Export or restore your saved positions, games, settings, puzzle progress, and imported puzzle pack.</p>
+              <div class="data-actions"><button class="btn btn-soft" id="exportDataBtn">Export full backup</button><button class="btn btn-soft" id="importDataBtn">Restore backup</button></div>
               <input type="file" id="importFile" accept="application/json,.json" hidden>
               <button class="btn btn-danger btn-full" id="clearDataBtn">Delete all data</button>
             </section>
@@ -288,6 +288,6 @@
   <div class="modal-backdrop" id="modalBackdrop" hidden><section class="modal card" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><button class="modal-close" id="modalClose" aria-label="Close">×</button><span class="eyebrow eyebrow-soft">HOW2CHESS</span><h2 id="modalTitle"></h2><div class="modal-body" id="modalBody"></div><div class="modal-actions" id="modalActions"></div></section></div>
   <script src="./vendor/chess/chess.js" defer></script>
   <script src="./follow-service.js" defer></script>
-  <script src="./app.js?v=20261122.8" defer></script>
+  <script src="./app.js?v=20261122.9" defer></script>
 </body>
 </html>
