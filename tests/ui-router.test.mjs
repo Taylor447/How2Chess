@@ -54,6 +54,15 @@ test("a feature rendering error cannot leave the landing page covering the selec
   assert.ok(route.includes('$("#routePlaceholder").hidden=false;'));
 });
 
+test("navigation listeners register before optional app initialization can fail", () => {
+  assert.ok(app.includes("function bindNavigationEvents()"));
+  const navEvents = app.slice(app.indexOf("function bindNavigationEvents()"), app.indexOf("function bindEvents()"));
+  assert.ok(navEvents.includes('$$(".navtab").forEach'));
+  const initialize = app.slice(app.indexOf("function initialize()"));
+  assert.ok(initialize.indexOf("bindNavigationEvents();") < initialize.indexOf('step("analysis board",renderAll)'));
+  assert.ok(initialize.includes('step("initial screen",'));
+});
+
 test("route screens reuse the existing theme and are visible only as the active screen", () => {
   assert.ok(html.includes('id="routeScreen"'));
   assert.ok(css.includes(".screen.active"));

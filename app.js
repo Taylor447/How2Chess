@@ -1840,19 +1840,14 @@
     setTheme("system");snapshotSettingsToUI();renderAll();renderLibrary();pushToast("Đã xóa dữ liệu cục bộ.");
   }
 
-  function bindEvents() {
-    $("#drawerToggle").addEventListener("click",()=>sideDrawerOpen?closeSideDrawer():openSideDrawer());
-    $("#drawerClose").addEventListener("click",()=>closeSideDrawer(true));
-    $("#drawerScrim").addEventListener("click",()=>closeSideDrawer(true));
-    $("#routeHome").addEventListener("click",()=>setScreen("h2c",true));
-    $("#coachToggle").addEventListener("click",toggleCoach);
-    $("#resignBotGame").addEventListener("click",()=>{if(!botMatch||botMatch.finished)return;showModal(settings.language==="en"?"Resign this game?":"Xin thua ván này?",'<p>'+(settings.language==="en"?"The game will be saved as a loss.":"Ván sẽ được lưu là một trận thua.")+'</p>',[{label:settings.language==="en"?"Keep playing":"Tiếp tục",value:"keep"},{label:settings.language==="en"?"Resign":"Xin thua",className:"btn-primary",value:"resign"}]).then(value=>{if(value==="resign")finishBotMatch(opposite(botMatch.playerColor),"resign");});});
-    $("#featureRouteBody").addEventListener("click",handleFeatureClick);
-    $("#featureRouteBody").addEventListener("change",handleFeatureChange);
-    $("#featureRouteBody").addEventListener("dragover",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.types?.includes("Files")){event.preventDefault();$("#featureRouteBody").classList.add("drag-over");}});
-    $("#featureRouteBody").addEventListener("dragleave",event=>{if(!$("#featureRouteBody").contains(event.relatedTarget))$("#featureRouteBody").classList.remove("drag-over");});
-    $("#featureRouteBody").addEventListener("drop",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.files?.length){event.preventDefault();$("#featureRouteBody").classList.remove("drag-over");importPgnFile(event.dataTransfer.files[0]);}});
-    $("#featureRouteBody").addEventListener("input",event=>{if(event.target.id==="variantBotElo"){variantBotElo=Number(event.target.value)||1000;const value=$("#variantBotEloValue");if(value)value.textContent=variantBotElo+" Elo";return;}if(event.target.id==="duelBotElo"){const value=$("#duelBotEloValue");if(value)value.textContent=event.target.value+" Elo";return;}if(event.target.id==="historySearch"){const value=event.target.value,start=event.target.selectionStart;renderHistoryRoute(value);const input=$("#historySearch");input?.focus();input?.setSelectionRange(start,start);}});
+  function bindNavigationEvents() {
+    $("#drawerToggle")?.addEventListener("click",()=>sideDrawerOpen?closeSideDrawer():openSideDrawer());
+    $("#drawerClose")?.addEventListener("click",()=>closeSideDrawer(true));
+    $("#drawerScrim")?.addEventListener("click",()=>closeSideDrawer(true));
+    $("#routeHome")?.addEventListener("click",()=>setScreen("h2c",true));
+    $("#openAppBtn")?.addEventListener("click",()=>setScreen("h2c",true));
+    $("#landingReturn")?.addEventListener("click",restoreLanding);
+    $$(".navtab").forEach(tab=>tab.addEventListener("click",()=>setScreen(tab.dataset.screen,true)));
     document.addEventListener("click",event=>{
       const target=event.target instanceof Element?event.target:null;
       const link=target?.closest("#drawerNavigation .drawer-link[data-route]");
@@ -1869,12 +1864,18 @@
       else if(sideDrawerOpen&&delta<=-72)closeSideDrawer(true);
       sideTouchStartX=null;
     },{passive:true});
-
-    $("#openAppBtn").addEventListener("click",()=>setScreen("h2c",true));
+  }
+  function bindEvents() {
+    $("#coachToggle").addEventListener("click",toggleCoach);
+    $("#resignBotGame").addEventListener("click",()=>{if(!botMatch||botMatch.finished)return;showModal(settings.language==="en"?"Resign this game?":"Xin thua ván này?",'<p>'+(settings.language==="en"?"The game will be saved as a loss.":"Ván sẽ được lưu là một trận thua.")+'</p>',[{label:settings.language==="en"?"Keep playing":"Tiếp tục",value:"keep"},{label:settings.language==="en"?"Resign":"Xin thua",className:"btn-primary",value:"resign"}]).then(value=>{if(value==="resign")finishBotMatch(opposite(botMatch.playerColor),"resign");});});
+    $("#featureRouteBody").addEventListener("click",handleFeatureClick);
+    $("#featureRouteBody").addEventListener("change",handleFeatureChange);
+    $("#featureRouteBody").addEventListener("dragover",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.types?.includes("Files")){event.preventDefault();$("#featureRouteBody").classList.add("drag-over");}});
+    $("#featureRouteBody").addEventListener("dragleave",event=>{if(!$("#featureRouteBody").contains(event.relatedTarget))$("#featureRouteBody").classList.remove("drag-over");});
+    $("#featureRouteBody").addEventListener("drop",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.files?.length){event.preventDefault();$("#featureRouteBody").classList.remove("drag-over");importPgnFile(event.dataTransfer.files[0]);}});
+    $("#featureRouteBody").addEventListener("input",event=>{if(event.target.id==="variantBotElo"){variantBotElo=Number(event.target.value)||1000;const value=$("#variantBotEloValue");if(value)value.textContent=variantBotElo+" Elo";return;}if(event.target.id==="duelBotElo"){const value=$("#duelBotEloValue");if(value)value.textContent=event.target.value+" Elo";return;}if(event.target.id==="historySearch"){const value=event.target.value,start=event.target.selectionStart;renderHistoryRoute(value);const input=$("#historySearch");input?.focus();input?.setSelectionRange(start,start);}});
     $("#installBtn").addEventListener("click",installApp);
     $("#themeQuick").addEventListener("click",()=>{const current=document.documentElement.dataset.theme;setTheme(current==="dark"?"light":"dark");});
-    $("#landingReturn").addEventListener("click",restoreLanding);
-    $$(".navtab").forEach(tab=>tab.addEventListener("click",()=>setScreen(tab.dataset.screen,true)));
     $("#goOptions").addEventListener("click",()=>setScreen("options",true));
     $("#builderMode").addEventListener("click",()=>setMode("builder"));
     $("#engineMode").addEventListener("click",()=>setMode("engine"));
@@ -1969,17 +1970,32 @@
     matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",()=>{if(settings.theme==="system")setTheme("system");});
   }
 
+  function runStartupStep(name,callback) {
+    try{callback();return true;}
+    catch(error){console.error("How2Chess startup step failed:",name,error);return false;}
+  }
   function initialize() {
-    if(!C) {
+    bindNavigationEvents();
+    let startupOK=true;
+    const step=(name,callback)=>{if(!runStartupStep(name,callback))startupOK=false;};
+    if(!C)step("chess rules",()=>{
       $("#engineBadge").classList.add("error");
-      setEngineBadge("Cần tải chess.js",false);
+      setEngineBadge("Could not load chess.js",false);
       $("#calculateBtn").disabled=true;
-      pushToast("Không tải được chess.js. Kiểm tra kết nối internet rồi tải lại.");
-    }
-    setTheme(settings.theme);snapshotSettingsToUI();updateLanguage();renderHeroBoard();renderAll();renderLibrary();bindEvents();installServiceWorker();
-    window.addEventListener("h2c-follow-updated",event=>{if(activeSideRoute==="featured"&&event.detail?.key==="broadcasts"||activeSideRoute==="events"&&["broadcasts","tournaments"].includes(event.detail?.key)||activeSideRoute==="streamers"&&event.detail?.key==="streamers")renderActiveFeatureRoute();});
-    if(new URLSearchParams(location.search).get("app")==="1"){setScreen("h2c",true);}else{routeFromHash();}
-    hydrateGameHistory();
+      pushToast("Could not load chess.js. Check your internet connection and reload.");
+    });
+    step("theme",()=>setTheme(settings.theme));
+    step("settings",snapshotSettingsToUI);
+    step("language and menu",updateLanguage);
+    step("hero board",renderHeroBoard);
+    step("analysis board",renderAll);
+    step("library",renderLibrary);
+    step("app controls",bindEvents);
+    step("offline cache",installServiceWorker);
+    step("live follow events",()=>window.addEventListener("h2c-follow-updated",event=>{if(activeSideRoute==="featured"&&event.detail?.key==="broadcasts"||activeSideRoute==="events"&&["broadcasts","tournaments"].includes(event.detail?.key)||activeSideRoute==="streamers"&&event.detail?.key==="streamers")renderActiveFeatureRoute();}));
+    step("initial screen",()=>{if(new URLSearchParams(location.search).get("app")==="1")setScreen("h2c",true);else routeFromHash();});
+    step("game history",hydrateGameHistory);
+    if(!startupOK)runStartupStep("startup notice",()=>pushToast(settings.language==="en"?"Some controls could not load. Navigation is still available.":"Một số điều khiển chưa tải được. Bạn vẫn có thể điều hướng."));
   }
   initialize();
 })();

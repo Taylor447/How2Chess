@@ -75,6 +75,6 @@ test("Events export .ics reminders, H2C TV uses official TV routes, and streamer
 test("Follow service is bundled and the offline shell cache is invalidated", () => {
   assert.match(html, /\.\/follow-service\.js/);
   assert.match(build, /"follow-service\.js"/);
-  assert.match(sw, /how2chess-v15/);
+  assert.match(sw, /how2chess-v16/);
   assert.match(sw, /\.\/follow-service\.js/);
 });

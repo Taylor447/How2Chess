@@ -63,6 +63,6 @@ test("Puzzle screens and the H2C board use one square renderer with mobile layou
 });
 
 test("Puzzle updates invalidate offline service-worker assets", () => {
-  assert.match(sw, /const CACHE_NAME = "how2chess-v15"/);
+  assert.match(sw, /const CACHE_NAME = "how2chess-v16"/);
 });
 
