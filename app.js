@@ -1286,9 +1286,10 @@
     if(activeSideRoute){activeSideRoute=null;setScreen($(".navtab.active")?.dataset.screen||"h2c",false);}
   }
   function navigateSideRoute(id) {
+    if(!routeItemById(id))return;
     const hash="#/"+id;
-    closeSideDrawer(true);
-    if(location.hash===hash)renderSideRoute(id,false);else location.hash=hash;
+    if(location.hash!==hash)history.pushState({h2cRoute:id},"",location.pathname+location.search+hash);
+    renderSideRoute(id);
   }
 
   function setScreen(name,fromLanding) {
@@ -1849,6 +1850,7 @@
       event.preventDefault();navigateSideRoute(link.dataset.route);
     });
     window.addEventListener("hashchange",routeFromHash);
+    window.addEventListener("popstate",routeFromHash);
     window.addEventListener("keydown",event=>{if(event.key==="Escape"&&sideDrawerOpen){event.preventDefault();closeSideDrawer(true);}});
     window.addEventListener("touchstart",event=>{if(event.touches.length===1)sideTouchStartX=event.touches[0].clientX;},{passive:true});
     window.addEventListener("touchend",event=>{

@@ -33,9 +33,16 @@ test("all sixteen feature screens have unique hash routes and icons", () => {
 
 test("hash router, back-to-primary action, and left-edge swipe are wired", () => {
   assert.ok(app.includes('window.addEventListener("hashchange",routeFromHash)'));
+  assert.ok(app.includes('window.addEventListener("popstate",routeFromHash)'));
   assert.ok(app.includes('location.hash.match(/^#\\/([a-z0-9-]+)\\/?$/i)'));
   assert.ok(app.includes('delta>=72'));
   assert.ok(html.includes('id="routeHome"'));
+});
+
+test("drawer selection renders the route immediately and keeps the URL in sync", () => {
+  assert.ok(app.includes("history.pushState({h2cRoute:id}"));
+  assert.ok(app.includes("renderSideRoute(id);"));
+  assert.ok(app.includes('event.preventDefault();navigateSideRoute(link.dataset.route)'));
 });
 
 test("route screens reuse the existing theme and are visible only as the active screen", () => {
