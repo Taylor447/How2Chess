@@ -1269,7 +1269,6 @@
     if(ready){
       $("#routeStatus").textContent=en?"Available now":"Đã sẵn sàng";
       $("#routeStatusDescription").textContent=en?"This feature works locally on this device.":"Tính năng chạy cục bộ trên thiết bị này.";
-      renderActiveFeatureRoute();
     }else{
       $("#routeStatus").textContent=en?"Screen frame is ready":"Khung màn hình đã sẵn sàng";
       $("#routeStatusDescription").textContent=en?"This route is connected. Its feature set will be added in step "+item.stage+".":"Đường dẫn đã hoạt động. Tính năng của màn hình này sẽ được thêm ở bước "+item.stage+".";
@@ -1279,6 +1278,15 @@
     $("#floatingAdd").hidden=true;$("#landing").hidden=true;$("#landingReturn").hidden=true;
     closeSideDrawer(false);translateDocument();
     if(scroll){$("#app").scrollIntoView({behavior:settings.motion?"smooth":"auto",block:"start"});$("#routeTitle").focus({preventScroll:true});}
+    if(ready){
+      try{renderActiveFeatureRoute();}
+      catch(error){
+        console.error("How2Chess could not render route:",routeId,error);
+        $("#featureRouteBody").hidden=true;$("#routePlaceholder").hidden=false;
+        $("#routeStatus").textContent=en?"This screen could not load":"Không thể tải màn hình này";
+        $("#routeStatusDescription").textContent=en?"The screen encountered an error. Try another menu item or reload the page.":"Màn hình gặp lỗi. Hãy thử mục khác hoặc tải lại trang.";
+      }
+    }
   }
   function routeFromHash() {
     const match=location.hash.match(/^#\/([a-z0-9-]+)\/?$/i);

@@ -48,6 +48,12 @@ test("drawer selection renders the route immediately and keeps the URL in sync",
   assert.ok(app.includes("},true);"));
 });
 
+test("a feature rendering error cannot leave the landing page covering the selected route", () => {
+  const route = app.slice(app.indexOf("function renderSideRoute(routeId"), app.indexOf("function routeFromHash()"));
+  assert.ok(route.indexOf('$("#landing").hidden=true') < route.indexOf("renderActiveFeatureRoute();"));
+  assert.ok(route.includes('$("#routePlaceholder").hidden=false;'));
+});
+
 test("route screens reuse the existing theme and are visible only as the active screen", () => {
   assert.ok(html.includes('id="routeScreen"'));
   assert.ok(css.includes(".screen.active"));
