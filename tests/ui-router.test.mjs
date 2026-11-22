@@ -42,7 +42,10 @@ test("hash router, back-to-primary action, and left-edge swipe are wired", () =>
 test("drawer selection renders the route immediately and keeps the URL in sync", () => {
   assert.ok(app.includes("history.pushState({h2cRoute:id}"));
   assert.ok(app.includes("renderSideRoute(id);"));
-  assert.ok(app.includes('event.preventDefault();navigateSideRoute(link.dataset.route)'));
+  assert.ok(app.includes('document.addEventListener("click",event=>{'));
+  assert.ok(app.includes('target?.closest("#drawerNavigation .drawer-link[data-route]")'));
+  assert.ok(app.includes('if(link)navigateSideRoute(link.dataset.route);'));
+  assert.ok(app.includes("},true);"));
 });
 
 test("route screens reuse the existing theme and are visible only as the active screen", () => {

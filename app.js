@@ -1845,10 +1845,11 @@
     $("#featureRouteBody").addEventListener("dragleave",event=>{if(!$("#featureRouteBody").contains(event.relatedTarget))$("#featureRouteBody").classList.remove("drag-over");});
     $("#featureRouteBody").addEventListener("drop",event=>{if(activeSideRoute==="history"&&event.dataTransfer?.files?.length){event.preventDefault();$("#featureRouteBody").classList.remove("drag-over");importPgnFile(event.dataTransfer.files[0]);}});
     $("#featureRouteBody").addEventListener("input",event=>{if(event.target.id==="variantBotElo"){variantBotElo=Number(event.target.value)||1000;const value=$("#variantBotEloValue");if(value)value.textContent=variantBotElo+" Elo";return;}if(event.target.id==="duelBotElo"){const value=$("#duelBotEloValue");if(value)value.textContent=event.target.value+" Elo";return;}if(event.target.id==="historySearch"){const value=event.target.value,start=event.target.selectionStart;renderHistoryRoute(value);const input=$("#historySearch");input?.focus();input?.setSelectionRange(start,start);}});
-    $("#drawerNavigation").addEventListener("click",event=>{
-      const link=event.target.closest("[data-route]");if(!link)return;
-      event.preventDefault();navigateSideRoute(link.dataset.route);
-    });
+    document.addEventListener("click",event=>{
+      const target=event.target instanceof Element?event.target:null;
+      const link=target?.closest("#drawerNavigation .drawer-link[data-route]");
+      if(link)navigateSideRoute(link.dataset.route);
+    },true);
     window.addEventListener("hashchange",routeFromHash);
     window.addEventListener("popstate",routeFromHash);
     window.addEventListener("keydown",event=>{if(event.key==="Escape"&&sideDrawerOpen){event.preventDefault();closeSideDrawer(true);}});
