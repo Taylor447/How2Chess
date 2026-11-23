@@ -1600,9 +1600,13 @@ let lichessEventRetryMs = 4000;
       if(engineBusy&&currentJob?.coachSnapshotOnly){engineWorker?.postMessage("stop");engineBusy=false;currentJob=null;$("#engineProgress").hidden=true;}
       const from=selection,fenBefore=boardFen(),sourceCoach=coachSnapshot?.fen===fenBefore?coachSnapshot:(lastEvaluation?.fen===fenBefore?lastEvaluation:null),beforeCoach=coachEnabled?copyCoachEval(sourceCoach):null,bestBefore=sourceCoach?.bestUci||null;
       recordUndo();
+      let made=null;
       try{
-        const made=game.move({from,to:sq,promotion:"q"});
-        if(!made){undoStack.pop();return;}
+        const legalMove=game.moves({square:from,verbose:true}).find(move=>move.to===sq);
+        made=legalMove?game.move(legalMove.san):null;
+      }catch(error){console.error("How2Chess could not apply the selected legal move",error);}
+      if(!made){undoStack.pop();pushToast("Nước đi không hợp lệ.");return;}
+      try{
         if(botMatch&&!botMatch.finished&&!completeBotMove(made)){undoStack.pop();return;}
         adoptGameFen(game.fen());lastMove={from:made.from,to:made.to};selection=null;legalTargets=[];bestMove=null;
         let coachEntry=null;
@@ -1613,7 +1617,10 @@ let lichessEventRetryMs = 4000;
         renderAll();
         if(botMatch&&!botMatch.finished&&checkBotGameEnd())return;
         if(mode==="engine"&&turn===engineColor)setTimeout(()=>analyze(true,true),160);
-      }catch(_){undoStack.pop();pushToast("Nước đi không hợp lệ.");}
+      }catch(error){
+        console.error("How2Chess failed after applying a legal move",error);
+        pushToast(settings.language==="en"?"Move accepted, but the board could not refresh. Reload the page.":"Nước đi đã được chấp nhận nhưng bàn cờ không cập nhật được. Hãy tải lại trang.");
+      }
       return;
     }
     const p=board[sq];

@@ -1,10 +1,10 @@
 "use strict";
-const CACHE_NAME = "how2chess-v21";
+const CACHE_NAME = "how2chess-v22";
 const LOCAL_ASSETS = [
   "./",
   "./index.html",
   "./app.css?v=20261122.5",
-  "./app.js?v=20261122.13",
+  "./app.js?v=20261123.1",
   "./follow-service.js",
   "./lichess-board.mjs",
   "./puzzle-peer-duel.mjs",
